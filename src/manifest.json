@@ -1,0 +1,24 @@
+{
+    "manifest.json": {
+      "manifest_version": 3,
+      "name": "Newsletter Aggregator",
+      "version": "1.0",
+      "permissions": ["storage", "tabs", "webNavigation", "identity", "https://mail.google.com/*"],
+      "background": {
+        "service_worker": "background.js"
+      },
+      "action": {
+        "default_popup": "popup.html"
+      },
+      "content_scripts": [
+        {
+          "matches": ["https://mail.google.com/*"],
+          "js": ["content.js"]
+        }
+      ]
+    },
+    "background.js": "// Handle Gmail API auth and email fetching",
+    "popup.html": "<!-- UI for filters, newsletter list, and actions -->",
+    "popup.js": "// Handle UI interactions, filtering, and storage",
+    "content.js": "// Inject buttons into Gmail for marking incomplete/bookmark"
+  }
