@@ -1,4 +1,6 @@
-import { useId } from "react"
+import { useId, useState } from "react"
+import {Modal} from "./Modal"
+import { useModal } from "@/hooks/useModal"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -12,11 +14,32 @@ import {
 } from "@/components/ui/select"
 
 export  function DurationDropdown() {
+  const [durationFilter,setDurationFilter]=useState("")
   const id = useId()
+  const {open,openModal,closeModal}=useModal()
+  console.log(durationFilter)
+//value won't change when clicking Custom... twice
+const handleValueChange = (value) => {
+  if (value === "4"){
+    openModal()
+  }
+  else{
+    setDurationFilter(value)
+  }
+}
+const handleCustomDuration = (e) => {
+   e.preventDefault()
+    const date = e.target.date.value
+    const time = e.target.time.value
+    // Handle the custom datetime filter here
+    console.log("Custom filter:", { date, time })
+    setDurationFilter([date,time])   //why don't it accept objects?
+    closeModal()
+  }
   return (
     <div className="*:not-first:mt-2">
       {/* <Label htmlFor={id}>Select with separator</Label> */}
-      <Select defaultValue="1">
+      <Select defaultValue="1" onValueChange={handleValueChange}>
         <SelectTrigger id={id}>
           <SelectValue placeholder="By Duration" />
         </SelectTrigger>
@@ -30,6 +53,46 @@ export  function DurationDropdown() {
           </SelectGroup>
         </SelectContent>
       </Select>
+      <Modal isOpen={open} onClose={closeModal}>
+        <form onSubmit={handleCustomDuration} className="space-y-4">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="date" className="font-medium">Enter Date</label>
+            <input 
+              type="date" 
+              id="date" 
+              name="date" 
+              className="border rounded-md p-2"
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="time" className="font-medium">Enter Time</label>
+            <input 
+              type="time" 
+              id="time" 
+              name="time"
+              className="border rounded-md p-2"
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="px-4 py-2 border rounded-md hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Apply Filter
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
+

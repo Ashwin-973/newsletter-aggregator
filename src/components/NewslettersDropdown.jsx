@@ -3,7 +3,7 @@ import { useId } from "react"
 import { Label } from "@/components/ui/label"
 import MultipleSelector from "@/components/ui/multiselect";
 
-const newslettes=[
+const newsletters=[
   {
     value:"all",
     label:"All"
@@ -116,14 +116,13 @@ export function NewslettersDropdown() {
   const id = useId()
   return (
     <div className="*:not-first:mt-2">
-      {/* <Label>Multiselect</Label> */}
       <MultipleSelector
         commandProps={{
           label: "Select frameworks",
         }}
-        value={newslettes.slice(0, 2)}
-        defaultOptions={newslettes}
-        placeholder="Select frameworks"
+        value={newsletters.slice(0, 2)}
+        defaultOptions={newsletters}
+        placeholder="Select Newsletters"
         hideClearAllButton
         hidePlaceholderWhenSelected
         emptyIndicator={<p className="text-center text-sm">No results found</p>} />

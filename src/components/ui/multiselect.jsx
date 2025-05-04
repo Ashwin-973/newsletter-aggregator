@@ -85,7 +85,7 @@ const CommandEmpty = ({
 }
 
 CommandEmpty.displayName = "CommandEmpty"
-
+//why does this component re-render when mouse enters the select space?
 const MultipleSelector = ({
   value,
   onChange,
@@ -117,11 +117,10 @@ const MultipleSelector = ({
   const [isLoading, setIsLoading] = React.useState(false)
   const dropdownRef = React.useRef(null) // Added this
 
-  const [selected, setSelected] = React.useState(value || [])
+  const [selected, setSelected] = React.useState(value || [])  //holds selected values in array of obj
   const [options, setOptions] = React.useState(transToGroupOption(arrayDefaultOptions, groupBy))
   const [inputValue, setInputValue] = React.useState("")
   const debouncedSearchTerm = useDebounce(inputValue, delay || 500)
-
   const handleClickOutside = (event) => {
     if (
       dropdownRef.current &&

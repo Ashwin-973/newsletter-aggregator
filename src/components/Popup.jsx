@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/tabs"
 
 export function Popup() {
-  const [readFilter,setReadFilter]=useState("all")
+  const [readFilter,setReadFilter]=useState("all")  //holds the current value of segmented control
   const handleFilterChange = (value) => {
     setReadFilter(value);
     console.log('Filter changed:', value);
