@@ -1,12 +1,15 @@
+import { useAuthState } from "./context/authContext"
+import { ReaderView } from "./components/ui/ReaderView"
+import { SignIn } from "./auth/SignIn"
 import { Popup } from "@/components/PopUp"
 
 function App() {
-
+  const {isAuthorize}=useAuthState()
   return (
+
     <div className="min-h-screen flex justify-center items-center">
-      <Popup/>
+        {isAuthorize?<ReaderView/>:<SignIn/>}
     </div>
-    
   )
 }
 
