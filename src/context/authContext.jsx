@@ -1,8 +1,6 @@
 import {useState,useEffect,createContext,useContext} from 'react'
-
+import { initializeGapiClient } from '@/api/gmail';
 const AuthContext = createContext(undefined)
-
-
 
 export function AuthProvider({children})
 {
@@ -54,19 +52,6 @@ export function AuthProvider({children})
       console.log("Yet to init gsi")
     }}, [gsiInited]);
 
-    const initializeGapiClient = async () => {
-        try {
-           await window.gapi.client.init({
-               apiKey: import.meta.VITE_API_KEY,
-               // discoveryDocs are often needed for APIs like Gmail
-               discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"],
-           });
-           console.log("GAPI client initialized");
-           // Note: Client is initialized, but not yet authorized for API calls
-        } catch (error) {
-           console.error("Error initializing GAPI client:", error);
-        }
-     }
 
      const handleAuthClick = () => {
         setIsLoading(true);
@@ -97,7 +82,7 @@ export function AuthProvider({children})
         <AuthContext.Provider value={{
             handleAuthClick,
             isLoading,
-            isAuthorize
+            isAuthorize,
         }}>
             {children}
         </AuthContext.Provider>
