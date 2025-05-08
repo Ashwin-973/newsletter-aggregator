@@ -1,5 +1,5 @@
 import { useAuthState } from "./context/authContext"
-import { ReaderView } from "./components/ui/ReaderView"
+import { ReaderView } from "./components/ReaderView"
 import { SignIn } from "./auth/SignIn"
 import { Popup } from "@/components/PopUp"
 
