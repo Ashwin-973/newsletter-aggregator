@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node src/scripts/postBuild.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -20,6 +20,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "jsrsasign": "^11.1.0",
     "lucide-react": "^0.506.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

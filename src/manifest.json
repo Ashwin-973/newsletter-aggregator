@@ -1,24 +1,45 @@
 {
-    "manifest.json": {
-      "manifest_version": 3,
-      "name": "Newsletter Aggregator",
-      "version": "1.0",
-      "permissions": ["storage", "tabs", "webNavigation", "identity", "https://mail.google.com/*"],
-      "background": {
-        "service_worker": "background.js"
-      },
-      "action": {
-        "default_popup": "popup.html"
-      },
-      "content_scripts": [
-        {
-          "matches": ["https://mail.google.com/*"],
-          "js": ["content.js"]
-        }
-      ]
-    },
-    "background.js": "// Handle Gmail API auth and email fetching",
-    "popup.html": "<!-- UI for filters, newsletter list, and actions -->",
-    "popup.js": "// Handle UI interactions, filtering, and storage",
-    "content.js": "// Inject buttons into Gmail for marking incomplete/bookmark"
+  "manifest_version": 3,
+  "name": "Newsletter Aggregator",
+  "version": "0.1.0",
+  "description": "Declutter your Gmail inbox with newsletter filtering and AI summaries.",
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlH/6SZ/J/UZO4BtwGRtBHyRKRULAJuL0O6wwtMfNGZScP3hY8cjmCijGamaa0wZZ/JPTUdQi8dEkNwDthmpF7kYJLiI5W8+/ciaaA9+BsE4cdH/0tIigIwkIqSDESePRKSA8NjS+jVGESiSD9GP/vEhA6vhev7lwj4cduSUUTR6y7X8vLA8T3+1CTn/4jBJIAWo9T8GnYk+s2h74N9xTU16fxodz0UfZR52XIeH9vgt5e0n29mKR5/TJCCQCFVzNqtfN404pdE0Stg83+gt1q0Wl2Dzd/MDbsXezLZlnuOmnenDA6d9SYm/FBSwAKTWQKuPhlO+bHo9ZtCw4cMul0QIDAQAB",
+  "permissions": [
+    "storage",
+    "identity",
+    "alarms",
+    "tabs",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://*.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+
+
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "index.html"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "oauth2": {
+    "client_id": "214053972459-5vojsk25jgfgiov072bmmi2qh605d2nc.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/gmail.readonly"
+    ]
   }
+}

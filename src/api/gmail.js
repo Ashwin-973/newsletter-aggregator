@@ -1,112 +1,171 @@
 // import parser
-// import storage
+// import {setNewsletters} from "../lib/storage"
 //use window.gapi to resolve scope errors
 
 // let from=[]
-let from=new Set() //all unique sender names
-let sentAt=[]
-let subject=[]
-let read=[]
+// let from=new Set() //all unique sender names
+// let sentAt=[]
+// let subject=[]
+// let read=[]
 
-export const initializeGapiClient = async () => {
-    try {
-       await window.gapi.client.init({
-           apiKey: import.meta.VITE_API_KEY,
-           // discoveryDocs are often needed for APIs like Gmail
-           discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"],
-       });
-       console.log("GAPI client initialized");
-       console.log(window.gapi)
-       // Note: Client is initialized, but not yet authorized for API calls
-    } catch (error) {
-       console.error("Error initializing GAPI client:", error);
+// let gapiClientInitialized = false;
+
+// async function initializeGapiClient() {
+//   if (typeof gapi === 'undefined' || typeof gapi.client === 'undefined') {
+//     return new Promise((resolve, reject) => {
+//       const intervalId = setInterval(() => {
+//         if (typeof gapi !== 'undefined' && typeof gapi.client !== 'undefined') {
+//           clearInterval(intervalId);
+//           gapi.load('client', async () => {
+//             try {
+//               await gapi.client.init({ /* API Key might be needed for some APIs, but not typically for Gmail with OAuth */ });
+//               // Load the Gmail API discovery document
+//               await gapi.client.load('gmail', 'v1');
+//               gapiClientInitialized = true;
+//               console.log('GAPI client and Gmail API initialized.');
+//               resolve();
+//             } catch (error) {
+//               console.error('Error initializing GAPI client or loading Gmail API:', error);
+//               reject(error);
+//             }
+//           });
+//         }
+//       }, 100); // Check every 100ms for GAPI
+//     });
+//   } else if (!gapiClientInitialized) {
+//      // GAPI script is loaded, but client might not be initialized or Gmail API not loaded
+//     try {
+//       await gapi.client.init({ }); 
+//       await gapi.client.load('gmail', 'v1');
+//       gapiClientInitialized = true;
+//       console.log('GAPI client and Gmail API re-initialized.');
+//     } catch (error) {
+//       console.error('Error re-initializing GAPI client or loading Gmail API:', error);
+//       throw error;
+//     }
+//   }
+// }
+
+// export function setGapiToken(token) {
+//   if (!gapiClientInitialized || !gapi || !gapi.client) {
+//     console.error('GAPI client not initialized before setting token.');
+//     throw new Error('GAPI client not initialized.');
+//   }
+//   gapi.client.setToken({ access_token: token });
+//   console.log('GAPI token set.');
+// }
+
+const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
+
+export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
+  if (!token) {
+    console.error('No auth token provided for fetching newsletters.');
+    throw new Error('Authentication token is required.');
+  }
+
+  // A more refined query to catch newsletters might include specific sender patterns
+  // or more nuanced keyword combinations if the basic ones are too broad or too narrow.
+  const defaultQuery = 'is:unread category:primary (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list")';
+  const query = queryOptions.query || defaultQuery;
+  const maxResults = queryOptions.maxResults || 100;
+
+  const listUrl = `${GMAIL_API_BASE_URL}/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`;
+
+  try {
+    console.log(`Fetching newsletters with query: "${query}"`);
+    const listResponse = await fetch(listUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!listResponse.ok) {
+      const errorBody = await listResponse.text();
+      console.error('Failed to list messages:', listResponse.status, errorBody);
+      if (listResponse.status === 401) {
+         throw new Error('Token has been expired or revoked (401)');
+      }
+      throw new Error(`Failed to list messages: ${listResponse.status} ${errorBody}`);
     }
- }
 
+    const listResult = await listResponse.json();
 
-export const fetchNewsletters = async (options = {}) => {
-    const { maxResults = 10000, startDate, endDate, providers = [] } = options;
-    
-    try {
-      // Construct a search query to find newsletters
-      // This is a critical part - Gmail doesn't have "newsletter" type
-      // so we need to use heuristics
-      let query = 'category:promotions OR category:updates OR category:forums';
-      
-      // Common newsletter footers/headers patterns
-      query += ' OR "unsubscribe" OR "view in browser" OR "email preferences" OR header.precedence:bulk OR header.precedence:list'
-      
-      // Add date constraints if provided
-      if (startDate) {
-        query += ` after:${formatDateForGmail(startDate)}`;
-      }
-      
-      if (endDate) {
-        query += ` before:${formatDateForGmail(endDate)}`;
-      }
-      
-      // Add specific providers if requested
-      if (providers.length > 0) {
-        const providersQuery = providers.map(p => `from:${p}`).join(' OR ');
-        query += ` AND (${providersQuery})`;
-      }
-      
-      // Execute the search
-      const response = await window.gapi?.client?.gmail.users.messages.list({
-        userId: 'me',
-        q: query,
-        maxResults,
-      });
-      
-      if (!response?.result.messages || response?.result.messages.length === 0) {
-        return [];
-      }
-      
-      // Fetch full message details for each message
-      // Use batch requests to optimize API usage
-      const messagePromises = response.result.messages.map(message => 
-        gapi.client?.gmail.users.messages.get({
-          userId: 'me',
-          id: message.id,
-          format: 'full', // Get full message content
-        })
-      );
-      
-      const messageResponses = await Promise.all(messagePromises);
+    console.log("Newsletters : ",listResult)
+    const messages = listResult.messages || [];
 
-    
-      // Process and extract relevant newsletter data
-      const newsletters = messageResponses
-        .map(resp => resp.result)
-        // .filter(message => isLikelyNewsletter(message)) // Filter out non-newsletters
-        // .map(message => parseNewsletterEmail(message));
-      
-      // Store the newsletters in local storage
-    //   await storeNewsletters(newsletters);
-      console.log("Newsletters : ",newsletters)
-      newsletters.forEach((letter) => {
-        const dateHeader = letter.payload.headers.find(meta => meta.name === 'Date');
-        const fromHeader = letter.payload.headers.find(meta => meta.name === 'From');
-        const subjectHeader=letter.payload.headers.find(meta=>meta.name === 'Subject')
-        if (dateHeader) sentAt.push(dateHeader);
-        if (fromHeader) from.add(fromHeader.value);
-        if(subjectHeader) subject.push(subjectHeader)
-      });
-
-    console.log("Date : ",sentAt)
-    console.log("From : ",from)
-    console.log("Subject : ",subject)
-      return newsletters;
-    } catch (error) {
-      console.error('Error fetching newsletters:', error);
-      throw error;
+    if (messages.length === 0) {
+      console.log('No newsletters found matching the query.');
+      return [];
     }
-  };
-  
-  /**
-   * Determines if an email is likely a newsletter based on content/headers
-   */
-  //these are hoisted
+
+    const newsletterDetailsPromises = messages.map(async (message) => {
+      // Request specific metadata headers
+      const messageUrl = `${GMAIL_API_BASE_URL}/messages/${message.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`;
+      try {
+        const msgResponse = await fetch(messageUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!msgResponse.ok) {
+          const errorBody = await msgResponse.text();
+          console.error(`Error fetching details for message ID ${message.id}:`, msgResponse.status, errorBody);
+          if (msgResponse.status === 401) {
+            throw new Error('Token has been expired or revoked during message fetch (401)');
+          }
+          return null; 
+        }
+        return await msgResponse.json();
+      } catch (err) {
+        console.error(`Network or critical error fetching message ID ${message.id}:`, err);
+        if (err.message?.includes('(401)')) throw err; 
+        return null; 
+      }
+    });
+
+    const resolvedDetails = await Promise.all(newsletterDetailsPromises);
+    // Filter out any null results from failed individual fetches (that weren't critical auth errors)
+    const validNewsletterDetails = resolvedDetails.filter(detail => detail !== null);
+    
+    console.log('Fetched newsletter details:', validNewsletterDetails);
+    return validNewsletterDetails;
+
+  } catch (error) { // Catches errors from listMessages or critical errors from messageDetails
+    console.error('Error in fetchNewslettersFromGmail main try block:', error);
+    throw error; // Re-throw the error for the background script to handle
+  }
+}
+
+/* 
+  All GAPI client related code has been removed or commented out below 
+  as we are using direct fetch calls with an OAuth token. 
+  If GAPI client features are needed later, they would require a different loading strategy
+  or the service worker would have to not be of type: "module".
+*/
+
+// Commented out old variable declarations that were related to the old gapi-based fetchNewsletters
+// let from = new Set(); 
+// let sentAt = [];
+// let subject = [];
+// let read = []; // This was unused
+
+// Commented out old gapi client initialization and GAPI-based functions
+/*
+let gapiClientInitialized = false;
+async function initializeGapiClient() { ... }
+export function setGapiToken(token) { ... }
+const fetchNewsletters = async (options = {}) => { ... }; // Old GAPI based
+function formatDateForGmail(date) { ... }
+const markMessageReadStatus = async (messageId, read = true) => { ... }; // Old GAPI based
+export { initializeGapiClient, fetchNewsletters,markMessageReadStatus }; // Old exports
+*/
+
+// /**
+//  * Determines if an email is likely a newsletter based on content/headers
+//  */
+// //these are hoisted
 
 /*function parseFromHeader(fromHeader) {
   if (!fromHeader) return { name: '', email: '' };
@@ -227,80 +286,80 @@ export const fetchNewsletters = async (options = {}) => {
     // console.log(`Subject: "${subject.substring(0,50)}...", From: ${senderEmail}, Score: ${score}`);
     return score >= NEWSLETTER_THRESHOLD;
 }*/
-  /**
-   * Formats a JS date for Gmail's query format
-   */
-  function formatDateForGmail(date) {
-    const d = new Date(date);
-    return d.toISOString().split('T')[0].replace(/-/g, '/');
-  }
-  
-  /**
-   * Gets sender avatar/logo if available
-   */
-  /*export const getSenderAvatar = async (email) => {
-    try {
-      // Extract domain from email
-      const domain = email.split('@')[1];
-      
-      // Try to get favicon from domain
-      const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-      
-      // You could validate if this returns a valid image
-      // by making a HEAD request
-      
-      return faviconUrl;
-    } catch {
-      return null;
-    }
-  };*/
-  
-  /**
-   * Mark message as read/unread in Gmail
-   */
-  export const markMessageReadStatus = async (messageId, read = true) => {
-    try {
-      // To mark as read, we remove the UNREAD label
-      // To mark as unread, we add the UNREAD label
-      const requestBody = {
-        removeLabelIds: read ? ['UNREAD'] : [],
-        addLabelIds: read ? [] : ['UNREAD'],
-      };
-      
-      await gapi.client?.gmail.users.messages.modify({
-        userId: 'me',
-        id: messageId,
-        resource: requestBody,
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('Error changing read status:', error);
-      throw error;
-    }
-  };
-  
-  /**
-   * Get all newsletter providers (senders)
-   */
- /* export const getNewsletterProviders = async () => {
-    try {
-      const newsletters = await fetchNewsletters({ maxResults: 500 });
-      
-      // Extract unique providers
-      const providers = [...new Set(newsletters.map(n => n.provider))];
-      
-      return providers.map(provider => ({
-        id: provider,
-        name: provider,
-        email: provider, // This would be the email address
-        // avatar: getSenderAvatar(provider),
-      }));
-    } catch (error) {
-      console.error('Error fetching newsletter providers:', error);
-      throw error;
-    }
-  };*/
+// /**
+//  * Formats a JS date for Gmail's query format
+//  */
+// function formatDateForGmail(date) {
+//   const d = new Date(date);
+//   return d.toISOString().split('T')[0].replace(/-/g, '/');
+// }
+// 
+// /**
+//  * Gets sender avatar/logo if available
+//  */
+// /*export const getSenderAvatar = async (email) => {
+//   try {
+//     // Extract domain from email
+//     const domain = email.split('@')[1];
+//     
+//     // Try to get favicon from domain
+//     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+//     
+//     // You could validate if this returns a valid image
+//     // by making a HEAD request
+//     
+//     return faviconUrl;
+//   } catch {
+//     return null;
+//   }
+// };*/
+// 
+// /**
+//  * Mark message as read/unread in Gmail
+//  */
+// const markMessageReadStatus = async (messageId, read = true) => {
+//     try {
+//       // To mark as read, we remove the UNREAD label
+//       // To mark as unread, we add the UNREAD label
+//       const requestBody = {
+//         removeLabelIds: read ? ['UNREAD'] : [],
+//         addLabelIds: read ? [] : ['UNREAD'],
+//       };
+//       
+//       await gapi.client?.gmail.users.messages.modify({
+//         userId: 'me',
+//         id: messageId,
+//         resource: requestBody,
+//       });
+//       
+//       return true;
+//     } catch (error) {
+//       console.error('Error changing read status:', error);
+//       throw error;
+//     }
+//   };
+//   
+//   /**
+//    * Get all newsletter providers (senders)
+//    */
+//  /* export const getNewsletterProviders = async () => {
+//     try {
+//       const newsletters = await fetchNewsletters({ maxResults: 500 });
+//       
+//       // Extract unique providers
+//       const providers = [...new Set(newsletters.map(n => n.provider))];
+//       
+//       return providers.map(provider => ({
+//         id: provider,
+//         name: provider,
+//         email: provider, // This would be the email address
+//         // avatar: getSenderAvatar(provider),
+//       }));
+//     } catch (error) {
+//       console.error('Error fetching newsletter providers:', error);
+//       throw error;
+//     }
+//   };*/
 
 
-
+// export { initializeGapiClient, fetchNewsletters,markMessageReadStatus };

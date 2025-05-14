@@ -1,5 +1,5 @@
-import {useState,useEffect,createContext,useContext} from 'react'
-import { initializeGapiClient } from '@/api/gmail';
+/*import {useState,useEffect,createContext,useContext} from 'react'
+// import { initializeGapiClient } from '@/api/gmail';
 const AuthContext = createContext(undefined)
 
 export function AuthProvider({children})
@@ -95,4 +95,4 @@ export function useAuthState() {
       throw new Error('useAuthState must be used within an AuthStateProvider');
     }
     return context;
-  }
+  }*/
