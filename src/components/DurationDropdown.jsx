@@ -13,18 +13,20 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-export  function DurationDropdown() {
-  const [durationFilter,setDurationFilter]=useState("")
+export function DurationDropdown({onChange,value}) {
+  // const [durationFilter,setDurationFilter]=useState("")
   const id = useId()
   const {open,openModal,closeModal}=useModal()
-  console.log(durationFilter)
 //value won't change when clicking Custom... twice
+
 const handleValueChange = (value) => {
   if (value === "4"){
     openModal()
   }
   else{
-    setDurationFilter(value)
+    // setDurationFilter(value)
+    onChange(value)
+
   }
 }
 const handleCustomDuration = (e) => {
@@ -33,13 +35,14 @@ const handleCustomDuration = (e) => {
     const time = e.target.time.value
     // Handle the custom datetime filter here
     console.log("Custom filter:", { date, time })
-    setDurationFilter([date,time])   //why don't it accept objects?
+    // setDurationFilter([date,time])   //why don't it accept objects?
+    onChange([date,time])
     closeModal()
   }
   return (
-    <div className="*:not-first:mt-2">
-      {/* <Label htmlFor={id}>Select with separator</Label> */}
-      <Select defaultValue="1" onValueChange={handleValueChange}>
+    <div className="*:not-first:mt-2 w-[200px] max-w-[240px] relative !z-1000 !overflow-visible">
+      {/* <Label htmlFor={id}>filter by duration</Label> */}
+      <Select defaultValue="1" value={value}  onValueChange={handleValueChange} onOpenChange={(open)=>console.log('select opened : ',open)}>
         <SelectTrigger id={id}>
           <SelectValue placeholder="By Duration" />
         </SelectTrigger>

@@ -1,7 +1,9 @@
 // Initialize GIS and GAPI
-
+//use functions in storage js to store newsletters
 import { getAuthToken, removeAuthToken, getUserInfo } from '../src/auth/auth.js';
 import { fetchNewslettersFromGmail } from '../src/api/gmail.js';
+// import { getAuthToken, removeAuthToken, getUserInfo } from './auth.js';
+// import { fetchNewslettersFromGmail } from './gmail.js';
 
 // Load Google API client library
 // try {
@@ -18,6 +20,8 @@ async function fetchNewsletters(token) {
     const newsletters = await fetchNewslettersFromGmail(token);
     await chrome.storage.local.set({ newsletters: newsletters || [] });
     console.log('Newsletters fetched and stored:', newsletters);
+    const localResult = await chrome.storage.local.get('newsletters');
+    console.log("Newsletters from local storage : ",localResult)
   } catch (error) {
     console.error('Error during newsletter fetch:', error);
     if (error.message?.includes('401') || error.status === 401 || error.message?.toLowerCase().includes('token has been expired or revoked')) {
@@ -38,7 +42,7 @@ async function handleLogin() {
       console.log('User signed in:', userInfo);
       console.log("Fetching newsletters with token : ",token)
       await fetchNewsletters(token);
-      chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 1 });
+      chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 15 });
       return { success: true, userInfo };
     }
     return { success: false, error: 'User did not grant access or closed the consent screen.' };
@@ -108,7 +112,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     const { authToken } = await chrome.storage.local.get('authToken');
     if(authToken){
         await fetchNewsletters(authToken);
-        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 1 });
+        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 15 });  //alarm fires every 15 minutes
     }
   } else {
     chrome.alarms.clear(GMAIL_FETCH_ALARM);

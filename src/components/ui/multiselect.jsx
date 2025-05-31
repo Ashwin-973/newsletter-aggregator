@@ -109,7 +109,8 @@ const MultipleSelector = ({
   triggerSearchOnFocus = false,
   commandProps,
   inputProps,
-  hideClearAllButton = false
+  hideClearAllButton = false,
+  resetState
 }) => {
   const inputRef = React.useRef(null)
   const [open, setOpen] = React.useState(false)
@@ -132,7 +133,6 @@ const MultipleSelector = ({
       inputRef.current.blur()
     }
   }
-
   const handleUnselect = React.useCallback((option) => {
     const newOptions = selected.filter((s) => s.value !== option.value)
     setSelected(newOptions)
@@ -324,7 +324,7 @@ const MultipleSelector = ({
         handleKeyDown(e)
         commandProps?.onKeyDown?.(e)
       }}
-      className={cn("h-auto overflow-visible bg-transparent", commandProps?.className)}
+      className={cn("h-auto overflow-visible bg-transparent w-[260px] max-w-[300px] max-h-[240px]", commandProps?.className)}
       // When onSearch is provided, we don&lsquo;t want to filter the options. You can still override it.
       shouldFilter={
         commandProps?.shouldFilter !== undefined

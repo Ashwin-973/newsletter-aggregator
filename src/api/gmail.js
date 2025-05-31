@@ -67,7 +67,7 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
   // or more nuanced keyword combinations if the basic ones are too broad or too narrow.
   const defaultQuery = 'is:unread category:primary (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list")';
   const query = queryOptions.query || defaultQuery;
-  const maxResults = queryOptions.maxResults || 100;
+  const maxResults = queryOptions.maxResults || 50;
 
   const listUrl = `${GMAIL_API_BASE_URL}/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`;
 
@@ -130,7 +130,23 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
     const validNewsletterDetails = resolvedDetails.filter(detail => detail !== null);
     
     console.log('Fetched newsletter details:', validNewsletterDetails);
-    return validNewsletterDetails;
+
+    // const newsletters = validNewsletterDetails.map(resp => resp.result);
+    // Store in chrome.storage.local
+    const newsletterData = validNewsletterDetails.map(letter => {
+      const dateHeader = letter.payload.headers.find(meta => meta.name === 'Date')?.value;
+      const fromHeader = letter.payload.headers.find(meta => meta.name === 'From')?.value;
+      const subjectHeader = letter.payload.headers.find(meta => meta.name === 'Subject')?.value;
+      return {
+        id: letter.id,
+        date: dateHeader,
+        from: fromHeader,
+        subject: subjectHeader,
+        read: !letter.labelIds.includes('UNREAD'),
+      };
+    });
+
+    return newsletterData;
 
   } catch (error) { // Catches errors from listMessages or critical errors from messageDetails
     console.error('Error in fetchNewslettersFromGmail main try block:', error);

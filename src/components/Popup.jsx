@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { isAfter, isSameDay, subDays,parse} from 'date-fns';
 import { DurationDropdown } from "./DurationDropdown";
 import { NewslettersDropdown } from "./NewslettersDropdown";
 import { SegmentedControl } from "./SegmentedControl";
@@ -26,17 +27,48 @@ export function Popup() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [newsletters, setNewsletters] = useState([]);
+  const [allProviders,setAllProviders] = useState("");
   const [userInfo, setUserInfo] = useState(null);
-  // const [readFilter, setReadFilter] = useState("all"); // Commented out as unused for now
+  const [readFilter, setReadFilter] = useState("all"); // Commented out as unused for now
+  const [durationFilter,setDurationFilter]=useState("")
+  const [selectedProviders,setSelectedProviders]=useState([])
+  const [resetState,setResetState]=useState(false)
+console.log("Unique providers :",allProviders)
 
-  const handleFilterChange = (value) => {
-    // setReadFilter(value); // Corresponding setter also commented out
-    console.log('Filter changed:', value);
+
+const handleReset=()=>
+{
+    setDurationFilter("1");
+    setSelectedProviders([])
+    setReadFilter("all"); // Corresponding setter also commented out
+    setResetState(false)
+}
+  const handleDurationStatus=(value)=>
+  {
+    console.log("Selected duration filter : ",value)
+    setDurationFilter(value);
+    setResetState(true)
+    
+  }
+
+  const handleProviderStatus=(value)=>
+  {
+    console.log("Selected providers : ",value)
+    setSelectedProviders(value)
+    setResetState(true)
+  }
+
+  
+  const handleReadStatus = (value) => {
+    setReadFilter(value); // Corresponding setter also commented out
+    console.log('Read changed:', value);
     // Future: Trigger refetch or client-side filter of newsletters based on 'value'
   };
 
+
+
   // Check auth status on component mount
-  useEffect(() => {
+useEffect(() => {
     setIsLoading(true);
     chrome.runtime.sendMessage({ action: 'getAuthStatus' }, (response) => {
       if (response && response.isAuthenticated) {
@@ -45,6 +77,7 @@ export function Popup() {
         // Fetch initial newsletters from storage
         chrome.storage.local.get('newsletters', ({ newsletters: storedNewsletters }) => {
           setNewsletters(storedNewsletters || []);
+          setAllProviders(getUniqueProviders(storedNewsletters || []));
         });
       } else {
         setIsAuthenticated(false);
@@ -59,10 +92,15 @@ export function Popup() {
         if (changes.isAuthenticated) {
           setIsAuthenticated(changes.isAuthenticated.newValue);
         }
+        if(changes.newsletters?.newValue){
+          setNewsletters(changes.newsletters.newValue);
+          setAllProviders(getUniqueProviders(changes.newsletters.newValue));
+        }
         if (changes.userInfo) {
           setUserInfo(changes.userInfo.newValue);
         }
         if (changes.newsletters) {
+          console.log("Newsletters in Popup : ",newsletters)
           setNewsletters(changes.newsletters.newValue || []);
         }
         // If logged out via storage change, update state
@@ -79,6 +117,100 @@ export function Popup() {
     };
   }, []);
 
+/*useEffect(()=>
+{
+  if(!resetState){
+    console.log("I ran")
+    handleReset()
+  }
+},[resetState])*/
+
+const extractProviderInfo = (from) => {
+  const matches = from.match(/(.*?)\s*<(.+?)>/);
+  if (matches) {
+    return {
+      value: matches[2], // email address
+      label: matches[1].trim() || matches[2] // display name or email if no name
+    };
+  }
+  return { value: from, label: from };
+};
+
+const getUniqueProviders = (newsletters) => {
+  const providers = new Set();
+  const uniqueProviders = [{ value: "all", label: "All" }];
+  
+  newsletters.forEach(nl => {
+    if (nl.from && !providers.has(nl.from)) {
+      providers.add(nl.from);
+      uniqueProviders.push(extractProviderInfo(nl.from));
+    }
+  });
+
+  console.log(uniqueProviders)
+  
+  return uniqueProviders;
+};
+
+
+const applyFilters = (newsletters, { duration, providers, readStatus }) => {
+  return newsletters.filter(nl => {
+      const now = new Date();  //gives date in GMT
+      const inputFormat = 'E, dd MMM yyyy HH:mm:ss xx';
+        // Clean up the date string first
+      const cleanDate = nl.date
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .replace(/\([^)]*\)/g, '') // Remove anything in parentheses like (UTC)
+        .trim(); // Remove leading/trailing spaces
+      const dateObject = parse(cleanDate, inputFormat, now);
+      const isoStringGMT = dateObject.toISOString();
+
+    // Duration filter
+    const passesDateFilter = () => {
+      if (!duration) return true;
+      if (Array.isArray(duration)) {
+        const [customDate, customTime] = duration;
+        // if(!customTime) customTime='00:00:00'
+        const filterDate = new Date(`${customDate}T${customTime}`);  //convert from date/time to GMT
+        console.log(filterDate)
+        console.log(isAfter(isoStringGMT, filterDate))
+        return isAfter(isoStringGMT, filterDate); 
+      }
+      
+      switch(duration) {
+        case "1": 
+          return true;
+        case "2": // Today
+          return isSameDay(isoStringGMT, now);
+        case "3": // Last 7 days
+          console.log(isAfter(isoStringGMT,now))
+          return isAfter(isoStringGMT, subDays(now, 7));   //subtract 7 days from now
+        default:
+          return true;
+      }
+    };
+
+    // Provider filter
+    const passesProviderFilter = () => {
+      if (!providers.length || providers[0]?.value === "all") return true;
+      return providers.some(p => nl.from.includes(p.value));
+    };
+
+    // Read status filter
+    const passesReadFilter = () => {
+      switch(readStatus.toLowerCase()) {
+        case "read":
+          return nl.read;
+        case "unread":
+          return !nl.read;
+        default:
+          return true;
+      }
+    };
+
+    return passesDateFilter() && passesProviderFilter() && passesReadFilter();
+  }).sort((a, b) => new Date(b.date) - new Date(a.date)); // Always newest first
+};
   const handleAuthClick = () => {
     setIsLoading(true);
     chrome.runtime.sendMessage({ action: 'login' }, (response) => {
@@ -115,11 +247,11 @@ export function Popup() {
   }
 
   return (
-    <div className="w-[400px] p-4">
+    <div className="min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] p-4">
       {!isAuthenticated ? (
         <SignIn isLoading={isLoading} handleAuthClick={handleAuthClick} />
       ) : (
-        <Tabs defaultValue="tab-1">
+        <Tabs className="max-w-full"  defaultValue="tab-1">
           <div className="flex justify-between items-center mb-3">
             <ScrollArea className="flex-grow">
               <TabsList>
@@ -158,10 +290,11 @@ export function Popup() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex justify-between items-center space-x-2">
-                  <DurationDropdown />
-                  <NewslettersDropdown />
-                  <SegmentedControl defaultValue="All" onChange={handleFilterChange} />
+                <div className="max-w-[800px] flex justify-center items-center gap-4 space-x-2">
+                  <DurationDropdown onChange={handleDurationStatus} value={durationFilter}/>
+                  <NewslettersDropdown onChange={handleProviderStatus}  providers={allProviders} value={selectedProviders} />   {/*search is happening through value and not label*/}
+                  <SegmentedControl defaultValue="All" onChange={handleReadStatus} value={readFilter}/>
+                  <button className="bg-slate-600 rounded-xl whitespace-nowrap" type='button' onClick={handleReset} disabled={!resetState}>Reset filters</button> {/* write proper disabled/opaque logic for this */}
                 </div>
               </CardContent>
             </Card>
@@ -177,12 +310,16 @@ export function Popup() {
                 {newsletters.length > 0 && (
                   <ScrollArea className="h-[300px]">
                     <ul className="space-y-2">
-                      {newsletters.map((nl) => {
-                        const subject = nl.payload?.headers?.find(h => h.name === 'Subject')?.value || 'No Subject';
-                        const from = nl.payload?.headers?.find(h => h.name === 'From')?.value || 'Unknown Sender';
-                        const date = nl.payload?.headers?.find(h => h.name === 'Date')?.value;
+                      {applyFilters(newsletters, {
+                        duration: durationFilter,
+                        providers: selectedProviders,
+                        readStatus: readFilter
+                          }).map((nl) => {
+                        const subject = nl?.subject || 'No Subject'
+                        const from = nl?.from || 'Unknown Sender';
+                        const date = nl?.date;
                         return (
-                          <li key={nl.id} className="p-2 border rounded hover:bg-muted">
+                          <li key={nl?.id} className="p-2 border rounded hover:bg-muted">
                             <div className="font-semibold text-sm truncate" title={subject}>{subject}</div>
                             <div className="text-xs text-muted-foreground truncate" title={from}>{from}</div>
                             {date && <div className="text-xs text-muted-foreground">{new Date(date).toLocaleDateString()}</div>}

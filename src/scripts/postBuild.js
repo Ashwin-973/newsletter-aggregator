@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
+console.log(__dirname)
 // Copy manifest.json to dist folder
 const manifestPath = path.join(__dirname, '../manifest.json'); //__dirname only avail in CJS module scope
 const destPath = path.join(__dirname, '../../dist/manifest.json');
@@ -16,6 +16,17 @@ const contentDestPath = path.join(__dirname, '../../dist/content.js');
 const serviceWorkerSrcPath=path.join(__dirname,'../background.js')
 const serviceWorkerDestPath=path.join(__dirname,'../../dist/background.js')
 
+const authSrcPath=path.join(__dirname,'../auth/auth.js')
+const authDestPath=path.join(__dirname,'../../dist/auth.js')
+
+const apiSrcPath=path.join(__dirname,'../api/gmail.js')
+const apiDestPath=path.join(__dirname,'../../dist/gmail.js')
+
+const storageSrcPath=path.join(__dirname,'../lib/storage.js')
+const storageDestPath=path.join(__dirname,'../../dist/storage.js')
+
+
+
 
 fs.copyFileSync(manifestPath, destPath);
 console.log('Manifest file copied to dist folder');
@@ -25,6 +36,15 @@ console.log('Content script copied to dist folder');
 
 fs.copyFileSync(serviceWorkerSrcPath,serviceWorkerDestPath)
 console.log('Background script copied to dist folder');
+
+fs.copyFileSync(authSrcPath,authDestPath)
+console.log('auth functions copied to dist folder');
+
+fs.copyFileSync(apiSrcPath,apiDestPath)
+console.log('gmail api functions copied to dist folder');
+
+fs.copyFileSync(storageSrcPath,storageDestPath)
+console.log('storage module copied to dist folder');
 
 // Copy icon files to dist folder
 const iconSizes = [16, 48, 128];

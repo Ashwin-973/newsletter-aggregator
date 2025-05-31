@@ -3,6 +3,8 @@ import { useId } from "react"
 import { Label } from "@/components/ui/label"
 import MultipleSelector from "@/components/ui/multiselect";
 
+
+
 const newsletters=[
   {
     value:"all",
@@ -111,17 +113,43 @@ const newsletters=[
     label: "Carthustle weekly",
   }
 ]
+/*const providers=[{value: 'all', label: 'All'},
+{value: 'no-reply@leetcode.com', label: 'LeetCode'},
+{value: 'submissions@webtoolsweekly.com', label: 'Web Tools Weekly'},
+{value: 'submissions@vscode.email', label: 'VSCode.Email'},
+{value: 'moneygrowthnewsletter@mail.beehiiv.com', label: 'Money Growth Newsletter'},
+{value: 'noreply@skool.com', label: 'The AI Report Free Community (Skool)'},
+{value: 'newsletters@techcrunch.com', label: 'TechCrunch'},
+{value: 'hi@deeperlearning.producthunt.com', label: 'The Frontier by Product Hunt'},
+{value: 'theaireport@mail.beehiiv.com', label: 'The AI Report'},
+{value: 'bytebytego@substack.com', label: 'ByteByteGo'},
+{value: 'noreply@sourcegraph.com', label: 'Sourcegraph'},
+{value: 'pragmaticengineer@substack.com', label: 'The Pragmatic Engineer'},
+{value: 'yo@dev.to', label: 'DEV Community Digest'}]*/
 
-export function NewslettersDropdown() {
+/*function cleanLabels(dataArray) {
+  return dataArray.map(item => {
+    if (typeof item.label === 'string') {
+      // Use replace() with a regex to remove leading/trailing double quotes
+      // The regex /^"|"$/g matches " at the start (^) or at the end ($) of the string.
+      return { ...item, label: item.label.replace(/^"|"$/g, '') };
+    }
+    return item; // Return item as is if label is not a string
+  });
+}*/
+
+export function NewslettersDropdown({onChange,providers,value}) {
   const id = useId()
+  console.log("Providers in dropdown : ",providers)
   return (
     <div className="*:not-first:mt-2">
       <MultipleSelector
+        onChange={onChange}
         commandProps={{
           label: "Select frameworks",
         }}
-        value={newsletters.slice(0, 2)}
-        defaultOptions={newsletters}
+        value={value}
+        defaultOptions={providers}
         placeholder="Select Newsletters"
         hideClearAllButton
         hidePlaceholderWhenSelected

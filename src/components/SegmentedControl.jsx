@@ -4,6 +4,7 @@ export const SegmentedControl = ({
   options = ["All","Read","Unread"],
   defaultValue,
   onChange,
+  value,
   className = '',
 }) => {
   const [selectedValue, setSelectedValue] = useState(defaultValue || options[0]);
@@ -15,7 +16,7 @@ export const SegmentedControl = ({
     updateIndicatorPosition();
     window.addEventListener('resize', updateIndicatorPosition);
     return () => window.removeEventListener('resize', updateIndicatorPosition);
-  }, [selectedValue]);
+  }, [value]);
 
   const updateIndicatorPosition = () => {
     const selectedIndex = options.indexOf(selectedValue);
@@ -48,7 +49,7 @@ export const SegmentedControl = ({
 
   return (
     <div
-      className={`relative p-1 bg-gray-100 rounded-lg dark:bg-gray-800 ${className}`}
+      className={`relative p-1 w-[240px] max-w-[300px] bg-gray-100 rounded-lg dark:bg-gray-800 ${className}`}
       ref={controlRef}
       role="tablist"
       aria-label="Message filter"
@@ -67,7 +68,7 @@ export const SegmentedControl = ({
             key={option}
             ref={(el) => (segmentRefs.current[index] = el)}
             role="tab"
-            aria-selected={selectedValue === option}
+            aria-selected={value === option}
             aria-controls={`panel-${option}`}
             className={`
               flex-1 px-4 py-2 min-h-[28px] text-sm font-medium rounded-md
