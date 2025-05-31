@@ -90,7 +90,7 @@ const MultipleSelector = ({
   value,
   onChange,
   placeholder,
-  defaultOptions: arrayDefaultOptions = [],
+  defaultOptions: arrayDefaultOptions,
   options: arrayOptions,
   delay,
   onSearch,
@@ -122,6 +122,7 @@ const MultipleSelector = ({
   const [options, setOptions] = React.useState(transToGroupOption(arrayDefaultOptions, groupBy))
   const [inputValue, setInputValue] = React.useState("")
   const debouncedSearchTerm = useDebounce(inputValue, delay || 500)
+  console.log(arrayDefaultOptions)
   const handleClickOutside = (event) => {
     if (
       dropdownRef.current &&

@@ -27,7 +27,7 @@ export function Popup() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [newsletters, setNewsletters] = useState([]);
-  const [allProviders,setAllProviders] = useState("");
+  const [allProviders,setAllProviders] = useState([]);
   const [userInfo, setUserInfo] = useState(null);
   const [readFilter, setReadFilter] = useState("all"); // Commented out as unused for now
   const [durationFilter,setDurationFilter]=useState("")
@@ -76,8 +76,15 @@ useEffect(() => {
         setUserInfo(response.userInfo);
         // Fetch initial newsletters from storage
         chrome.storage.local.get('newsletters', ({ newsletters: storedNewsletters }) => {
-          setNewsletters(storedNewsletters || []);
-          setAllProviders(getUniqueProviders(storedNewsletters || []));
+          try {
+          const newsletters = storedNewsletters || [];
+          setNewsletters(newsletters);
+          const providers = getUniqueProviders(newsletters);
+          setAllProviders(providers);
+        } catch (error) {
+          console.error('Error processing newsletters:', error);
+          setAllProviders([]); // Fallback to empty array
+        }
         });
       } else {
         setIsAuthenticated(false);
@@ -93,8 +100,10 @@ useEffect(() => {
           setIsAuthenticated(changes.isAuthenticated.newValue);
         }
         if(changes.newsletters?.newValue){
+          console.log('New Newsletters:', changes.newsletters.newValue);
           setNewsletters(changes.newsletters.newValue);
           setAllProviders(getUniqueProviders(changes.newsletters.newValue));
+          console.log('New Providers:', newProviders);
         }
         if (changes.userInfo) {
           setUserInfo(changes.userInfo.newValue);
@@ -137,19 +146,28 @@ const extractProviderInfo = (from) => {
 };
 
 const getUniqueProviders = (newsletters) => {
-  const providers = new Set();
-  const uniqueProviders = [{ value: "all", label: "All" }];
-  
+   if (!Array.isArray(newsletters) || newsletters.length === 0) {
+    return [{ value: "all", label: "All" }];
+  }
+  const providers = new Map();
+  providers.set("all", { value: "all", label: "All" });
+
   newsletters.forEach(nl => {
-    if (nl.from && !providers.has(nl.from)) {
-      providers.add(nl.from);
-      uniqueProviders.push(extractProviderInfo(nl.from));
+    if (nl?.from) {
+      const matches = nl.from.match(/(.*?)\s*<(.+?)>/);
+      if (matches) {
+        const [, label, email] = matches;
+        if (!providers.has(email)) {
+          providers.set(email, {
+            value: email,
+            label: label.trim() || email
+          });
+        }
+      }
     }
   });
 
-  console.log(uniqueProviders)
-  
-  return uniqueProviders;
+  return Array.from(providers.values())
 };
 
 
@@ -292,7 +310,7 @@ const applyFilters = (newsletters, { duration, providers, readStatus }) => {
               <CardContent className="space-y-2">
                 <div className="max-w-[800px] flex justify-center items-center gap-4 space-x-2">
                   <DurationDropdown onChange={handleDurationStatus} value={durationFilter}/>
-                  <NewslettersDropdown onChange={handleProviderStatus}  providers={allProviders} value={selectedProviders} />   {/*search is happening through value and not label*/}
+                  <NewslettersDropdown onChange={handleProviderStatus}  providers={allProviders} value={selectedProviders || []} />   {/*search is happening through value and not label*/}
                   <SegmentedControl defaultValue="All" onChange={handleReadStatus} value={readFilter}/>
                   <button className="bg-slate-600 rounded-xl whitespace-nowrap" type='button' onClick={handleReset} disabled={!resetState}>Reset filters</button> {/* write proper disabled/opaque logic for this */}
                 </div>
