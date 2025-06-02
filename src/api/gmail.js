@@ -143,6 +143,10 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
         from: fromHeader,
         subject: subjectHeader,
         read: !letter.labelIds.includes('UNREAD'),
+        bookmark: false, 
+        readLater: false, 
+        incomplete: false, 
+        scrollPosition: null 
       };
     });
 
@@ -258,7 +262,40 @@ function parseParts(part) {
   return result;
 }
 
+// handle emails as READ via gmail API
+export async function markMessageAsRead(token, messageId) {
+  if (!token || !messageId) {
+    throw new Error('Token and messageId are required');
+  }
 
+  /*const modifyUrl = `${GMAIL_API_BASE_URL}/messages/${messageId}/modify`;
+
+  try {
+    const response = await fetch(modifyUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        removeLabelIds: ['UNREAD']
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Token has been expired or revoked (401)');
+      }
+      throw new Error(`Failed to mark message as read: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    throw error;
+  }*/
+ console.log("fake Read status modified ")
+}
 
 
 

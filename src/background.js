@@ -1,9 +1,11 @@
 // Initialize GIS and GAPI
 //use functions in storage js to store newsletters
 import { getAuthToken, removeAuthToken, getUserInfo } from '../src/auth/auth.js';
-import { fetchNewslettersFromGmail,fetchEmailContent,parseEmailContent  } from '../src/api/gmail.js';
+import { fetchNewslettersFromGmail,fetchEmailContent,parseEmailContent, markMessageAsRead  } from '../src/api/gmail.js';
+import { mergeNewsletterData } from '../src/lib/storage.js'; 
 // import { getAuthToken, removeAuthToken, getUserInfo } from './auth.js';
-// import { fetchNewslettersFromGmail,fetchEmailContent,parseEmailContent } from './gmail.js';
+// import { fetchNewslettersFromGmail,fetchEmailContent,parseEmailContent ,markMessageAsRead  } from './gmail.js';
+// import { mergeNewsletterData } from './storage.js'; 
 
 
 // Load Google API client library
@@ -19,9 +21,11 @@ const GMAIL_FETCH_ALARM = 'gmailFetchAlarm';
 async function fetchNewsletters(token) {
   try {
     const newsletters = await fetchNewslettersFromGmail(token);
-    await chrome.storage.local.set({ newsletters: newsletters || [] });
-    console.log('Newsletters fetched and stored:', newsletters);
-    const localResult = await chrome.storage.local.get('newsletters');
+    //get existing newsletters to preserve user data
+    const { newsletters: existingNewsletters } = await chrome.storage.local.get('newsletters');
+    const mergedNewsletters = mergeNewsletterData(existingNewsletters || [], newsletters || []);
+    await chrome.storage.local.set({ newsletters: mergedNewsletters || [] });
+    console.log('Newsletters fetched and stored:', mergedNewsletters);
   } catch (error) {
     console.error('Error during newsletter fetch:', error);
     if (error.message?.includes('401') || error.status === 401 || error.message?.toLowerCase().includes('token has been expired or revoked')) {
@@ -163,6 +167,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     handleGetEmailContent(request.messageId).then(sendResponse);
     return true;
   }
+  else if (request.action === 'markAsRead') {
+    // NEW: Handle marking message as read
+    handleMarkAsRead(request.messageId).then(sendResponse);
+    return true;
+  } else if (request.action === 'updateNewsletterStatus') {
+    // NEW: Handle bookmark/readLater/incomplete updates
+    handleUpdateNewsletterStatus(request.messageId, request.updates).then(sendResponse);
+    return true;
+  } else if (request.action === 'saveScrollPosition') {
+    // NEW: Handle scroll position saving
+    handleSaveScrollPosition(request.messageId, request.scrollPosition).then(sendResponse);
+    return true;
+  }
   return false;
 });
 
@@ -185,6 +202,61 @@ async function handleGetEmailContent(messageId) {
   }
 }
 
+//function to mark email as READ
+async function handleMarkAsRead(messageId) {
+  try {
+    const { authToken } = await chrome.storage.local.get('authToken');
+    if (!authToken) {
+      throw new Error('No auth token available');
+    }
+
+    await markMessageAsRead(authToken, messageId);
+    
+    // Update local storage
+    const { newsletters } = await chrome.storage.local.get('newsletters');
+    const updatedNewsletters = newsletters.map(nl => 
+      nl.id === messageId ? { ...nl, read: true } : nl
+    );
+    await chrome.storage.local.set({ newsletters: updatedNewsletters });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+//update newsletter status in newsletter list
+async function handleUpdateNewsletterStatus(messageId, updates) {
+  try {
+    const { newsletters } = await chrome.storage.local.get('newsletters');
+    const updatedNewsletters = newsletters.map(nl => 
+      nl.id === messageId ? { ...nl, ...updates } : nl
+    );
+    await chrome.storage.local.set({ newsletters: updatedNewsletters });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating newsletter status:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+//save scroll position
+async function handleSaveScrollPosition(messageId, scrollPosition) {
+  try {
+    const { newsletters } = await chrome.storage.local.get('newsletters');
+    const updatedNewsletters = newsletters.map(nl => 
+      nl.id === messageId ? { ...nl, scrollPosition, incomplete: scrollPosition !== null } : nl
+    );
+    await chrome.storage.local.set({ newsletters: updatedNewsletters });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving scroll position:', error);
+    return { success: false, error: error.message };
+  }
+}
 
 /*const CLIENT_ID = encodeURIComponent('1062713297927-2r9vfe6fbmgc80s5r8m5a77v9ir42jm3.apps.googleusercontent.com');
 const RESPONSE_TYPE = encodeURIComponent('id_token');

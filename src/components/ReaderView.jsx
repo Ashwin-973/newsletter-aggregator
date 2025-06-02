@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState,useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,9 @@ export function ReaderView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [messageId, setMessageId] = useState(null);
+  const [initialScrollPosition, setInitialScrollPosition] = useState(null); // NEW
+  const scrollTimeoutRef = useRef(null); // NEW
+  const hasScrolledToPosition = useRef(false); // NEW
 
   useEffect(() => {
     // Get messageId from URL parameters
@@ -25,19 +28,56 @@ export function ReaderView() {
     const id = urlParams.get('messageId');
     
     if (id) {
-      setMessageId(id);
-      fetchEmailContent(id);
+      setMessageId(id)
+      fetchEmailContent(id)
+      markMessageAsRead(id)
     } else {
       setError('No message ID provided');
       setLoading(false);
     }
+    //prompt the user before unload
+    const handleBeforeUnload = (e) => {
+      const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollPercentage = (scrollPosition / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+      
+      if (scrollPercentage < 80) { // Consider incomplete if less than 80% scrolled
+        const shouldSave = confirm('Do you want to mark this newsletter as incomplete to continue reading later?');
+        if (shouldSave) {
+          saveScrollPosition(id, scrollPosition);
+        } else {
+          saveScrollPosition(id, null);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
 
-  const fetchEmailContent = async (id) => {
+  // Scroll to saved position after content loads
+  useEffect(() => {
+    if (emailContent && initialScrollPosition && !hasScrolledToPosition.current) {
+      setTimeout(() => {
+        window.scrollTo(0, initialScrollPosition);
+        hasScrolledToPosition.current = true;
+      }, 100);
+    }
+  }, [emailContent, initialScrollPosition]);
+
+const fetchEmailContent = async (id) => {
     try {
       setLoading(true);
       
-      // Request email content from background script
+      // Get newsletter data to check for saved scroll position
+      const { newsletters } = await chrome.storage.local.get('newsletters');
+      const newsletter = newsletters?.find(nl => nl.id === id);
+      if (newsletter?.scrollPosition) {
+        setInitialScrollPosition(newsletter.scrollPosition);
+      }
+      
       const response = await new Promise((resolve) => {
         chrome.runtime.sendMessage(
           { action: 'getEmailContent', messageId: id },
@@ -56,6 +96,7 @@ export function ReaderView() {
       setLoading(false);
     }
   };
+
 
   const sanitizeHTML = (html) => {
     if (!html) return '';
@@ -97,6 +138,34 @@ export function ReaderView() {
   const handleBackToInbox = () => {
     window.close();
   };
+
+  const markMessageAsRead = async (id) => {
+    try {
+      await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'markAsRead', messageId: id },
+          resolve
+        );
+      });
+    } catch (error) {
+      console.error('Failed to mark message as read:', error);
+    }
+  };
+
+const saveScrollPosition = async (id, position) => {
+    try {
+      await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'saveScrollPosition', messageId: id, scrollPosition: position },
+          resolve
+        );
+      });
+    } catch (error) {
+      console.error('Failed to save scroll position:', error);
+    }
+  };
+
+
 
   if (loading) {
     return (

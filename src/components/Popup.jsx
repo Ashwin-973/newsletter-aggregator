@@ -3,6 +3,7 @@ import { isAfter, isSameDay, subDays,parse} from 'date-fns';
 import { DurationDropdown } from "./DurationDropdown";
 import { NewslettersDropdown } from "./NewslettersDropdown";
 import { SegmentedControl } from "./SegmentedControl";
+import { ContextMenu } from "./ContextMenu";
 import { SignIn } from "@/auth/SignIn"; // Assuming SignIn component is for UI only now
 import { BoxIcon, HouseIcon, PanelsTopLeftIcon, LogOutIcon } from "lucide-react";
 import {
@@ -33,39 +34,11 @@ export function Popup() {
   const [durationFilter,setDurationFilter]=useState("")
   const [selectedProviders,setSelectedProviders]=useState([])
   const [resetState,setResetState]=useState(false)
-console.log("Unique providers :",allProviders)
-
-
-const handleReset=()=>
-{
-    setDurationFilter("1");
-    setSelectedProviders([])
-    setReadFilter("all"); // Corresponding setter also commented out
-    setResetState(false)
-}
-  const handleDurationStatus=(value)=>
-  {
-    console.log("Selected duration filter : ",value)
-    setDurationFilter(value);
-    setResetState(true)
-    
-  }
-
-  const handleProviderStatus=(value)=>
-  {
-    console.log("Selected providers : ",value)
-    setSelectedProviders(value)
-    setResetState(true)
-  }
-
-  
-  const handleReadStatus = (value) => {
-    setReadFilter(value); // Corresponding setter also commented out
-    console.log('Read changed:', value);
-    // Future: Trigger refetch or client-side filter of newsletters based on 'value'
-  };
-
-
+  const [contextMenu, setContextMenu] = useState({  
+  isOpen: false,
+  position: { x: 0, y: 0 },
+  newsletter: null
+}); //to open/close context menu
 
   // Check auth status on component mount
 useEffect(() => {
@@ -124,6 +97,42 @@ const storageChangedListener = (changes, area) => {
     };
   }, []);
 
+console.log("Unique providers :",allProviders)
+
+
+
+const handleReset=()=>
+{
+    setDurationFilter("1");
+    setSelectedProviders([])
+    setReadFilter("all"); // Corresponding setter also commented out
+    setResetState(false)
+}
+  const handleDurationStatus=(value)=>
+  {
+    console.log("Selected duration filter : ",value)
+    setDurationFilter(value);
+    setResetState(true)
+    
+  }
+
+  const handleProviderStatus=(value)=>
+  {
+    console.log("Selected providers : ",value)
+    setSelectedProviders(value)
+    setResetState(true)
+  }
+
+  
+  const handleReadStatus = (value) => {
+    setReadFilter(value); // Corresponding setter also commented out
+    console.log('Read changed:', value);
+    // Future: Trigger refetch or client-side filter of newsletters based on 'value'
+  };
+
+
+
+
 /*useEffect(()=>
 {
   if(!resetState){
@@ -164,39 +173,91 @@ const getUniqueProviders = (newsletters) => {
   return Array.from(providers.values())
 };
 
+// Handle date parsing with multiple format attempts
+const parseNewsletterDate = (dateString) => {
+      if (!dateString) return null;
+      
+      try {
+        // Clean up the date string
+        const cleanDate = dateString
+          .replace(/\s+/g, ' ')
+          .replace(/\([^)]*\)/g, '')
+          .trim();
+        
+        // Try multiple date formats
+        const formats = [
+          'E, dd MMM yyyy HH:mm:ss xx',  // Original format
+          'dd MMM yyyy HH:mm:ss xx',     // Without day name
+          'E, dd MMM yyyy HH:mm:ss X',   // Different timezone format
+          'dd MMM yyyy HH:mm:ss X'       // Without day name, different timezone
+        ];
+        
+        // Try parsing with date-fns formats
+        for (const format of formats) {
+          try {
+            const parsed = parse(cleanDate, format, now);
+            if (!isNaN(parsed.getTime())) {
+              return parsed;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        // Fallback to native Date parsing
+        const nativeDate = new Date(cleanDate);
+        if (!isNaN(nativeDate.getTime())) {
+          return nativeDate;
+        }
+        
+        // Last resort: try with timezone normalization
+        const normalizedDate = cleanDate.replace(/-0000$/, '+0000');
+        const finalAttempt = new Date(normalizedDate);
+        if (!isNaN(finalAttempt.getTime())) {
+          return finalAttempt;
+        }
+        
+        return null;
+      } catch (error) {
+        console.warn('Failed to parse date:', dateString, error);
+        return null;
+      }
+    };
+
 
 const applyFilters = (newsletters, { duration, providers, readStatus }) => {
   return newsletters.filter(nl => {
-      const now = new Date();  //gives date in GMT
-      const inputFormat = 'E, dd MMM yyyy HH:mm:ss xx';
-        // Clean up the date string first
-      const cleanDate = nl.date
-        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-        .replace(/\([^)]*\)/g, '') // Remove anything in parentheses like (UTC)
-        .trim(); // Remove leading/trailing spaces
-      const dateObject = parse(cleanDate, inputFormat, now);
-      const isoStringGMT = dateObject.toISOString();
+    const now = new Date();
+    
+    
+    const dateObject = parseNewsletterDate(nl.date);
+    if (!dateObject) {
+      console.warn('Skipping newsletter with invalid date:', nl.date);
+      return false; // Skip newsletters with unparseable dates
+    }
 
     // Duration filter
     const passesDateFilter = () => {
       if (!duration) return true;
       if (Array.isArray(duration)) {
         const [customDate, customTime] = duration;
-        // if(!customTime) customTime='00:00:00'
-        const filterDate = new Date(`${customDate}T${customTime}`);  //convert from date/time to GMT
-        console.log(filterDate)
-        console.log(isAfter(isoStringGMT, filterDate))
-        return isAfter(isoStringGMT, filterDate); 
+        try {
+          const filterDate = new Date(`${customDate}T${customTime}`);
+          if (isNaN(filterDate.getTime())) return true; // Skip filter if invalid
+          return isAfter(dateObject, filterDate);
+        } catch (error) {
+          console.warn('Invalid custom date filter:', error);
+          return true;
+        }
       }
       
       switch(duration) {
         case "1": 
           return true;
         case "2": // Today
-          return isSameDay(isoStringGMT, now);
+          return isSameDay(dateObject, now);
         case "3": // Last 7 days
-          console.log(isAfter(isoStringGMT,now))
-          return isAfter(isoStringGMT, subDays(now, 7));   //subtract 7 days from now
+          return isAfter(dateObject, subDays(now, 7));
         default:
           return true;
       }
@@ -221,8 +282,19 @@ const applyFilters = (newsletters, { duration, providers, readStatus }) => {
     };
 
     return passesDateFilter() && passesProviderFilter() && passesReadFilter();
-  }).sort((a, b) => new Date(b.date) - new Date(a.date)); // Always newest first
+  }).sort((a, b) => {
+    // Safe date sorting
+    const dateA = parseNewsletterDate(a.date);
+    const dateB = parseNewsletterDate(b.date);
+    
+    if (!dateA && !dateB) return 0;
+    if (!dateA) return 1;
+    if (!dateB) return -1;
+    
+    return dateB.getTime() - dateA.getTime();
+  });
 };
+
   const handleAuthClick = () => {
     setIsLoading(true);
     chrome.runtime.sendMessage({ action: 'login' }, (response) => {
@@ -265,7 +337,86 @@ const handleNewsletterClick = (newsletter) => {
   chrome.tabs.create({ url: readerUrl });
 };
 
+const handleContextMenu = (e, newsletter) => {
+  e.preventDefault();
+  console.log("Context menu clicked")
+  setContextMenu({
+    isOpen: true,
+    position: { x: e.clientX, y: e.clientY },
+    newsletter
+  });
+};
 
+const closeContextMenu = () => {
+  console.log("Context menu closed")
+  setContextMenu(prev => ({ ...prev, isOpen: false }));
+};
+
+const handleBookmark = async (newsletter) => {
+  try {
+    const newBookmarkStatus = !newsletter.bookmark;
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        action: 'updateNewsletterStatus',
+        messageId: newsletter.id,
+        updates: { bookmark: newBookmarkStatus }
+      }, resolve);
+    });
+  } catch (error) {
+    console.error('Failed to update bookmark status:', error);
+  }
+};
+
+const handleReadLater = async (newsletter) => {
+  try {
+    const newReadLaterStatus = !newsletter.readLater;
+    await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        action: 'updateNewsletterStatus',
+        messageId: newsletter.id,
+        updates: { readLater: newReadLaterStatus }
+      }, resolve);
+    });
+  } catch (error) {
+    console.error('Failed to update read later status:', error);
+  }
+};
+
+const renderNewsletterItem = (newsletter) => {
+  const subject = newsletter?.subject || 'No Subject';
+  const from = newsletter?.from || 'Unknown Sender';
+  const date = newsletter?.date;
+  
+  return (
+    <li 
+      key={newsletter?.id} 
+      className="p-2 border rounded hover:bg-muted cursor-pointer transition-colors relative"
+      onClick={() => handleNewsletterClick(newsletter)}
+      onContextMenu={(e) => handleContextMenu(e, newsletter)}
+      role="button"
+      tabIndex={0}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm truncate flex items-center gap-2" title={subject}>
+            {subject}
+            <div className="flex gap-1">
+              {newsletter.bookmark && <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">📖</span>}
+              {newsletter.readLater && <span className="text-xs bg-yellow-100 text-yellow-800 px-1 rounded">🕒</span>}
+              {newsletter.incomplete && <span className="text-xs bg-orange-100 text-orange-800 px-1 rounded">📄</span>}
+              {!newsletter.read && <span className="text-xs bg-green-100 text-green-800 px-1 rounded">●</span>}
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground truncate" title={from}>{from}</div>
+          {date && <div className="text-xs text-muted-foreground">{new Date(date).toLocaleDateString()}</div>}
+        </div>
+      </div>
+      <div className="mt-1">
+        <span className="text-xs text-blue-600 hover:text-blue-800">Click to read →</span>
+      </div>
+    </li>
+  );
+};
   return (
     <div className="min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] p-4">
       {!isAuthenticated ? (
@@ -277,7 +428,7 @@ const handleNewsletterClick = (newsletter) => {
               <TabsList>
                 <TabsTrigger value="tab-1">
                   <HouseIcon className="-ms-0.5 me-1.5 opacity-60" size={16} aria-hidden="true" />
-                  Overview
+                  Main
                 </TabsTrigger>
                 <TabsTrigger value="tab-2" className="group">
                   <PanelsTopLeftIcon className="-ms-0.5 me-1.5 opacity-60" size={16} aria-hidden="true" />
@@ -285,13 +436,17 @@ const handleNewsletterClick = (newsletter) => {
                   <Badge
                     className="bg-primary/15 ms-1.5 min-w-5 px-1 transition-opacity group-data-[state=inactive]:opacity-50"
                     variant="secondary">
-                    0 {/* Placeholder */}
+                    {newsletters.filter(nl => nl.bookmark).length}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger value="tab-3" className="group">
                   <BoxIcon className="-ms-0.5 me-1.5 opacity-60" size={16} aria-hidden="true" />
-                  Read Later
-                   {/* <Badge className="ms-1.5 transition-opacity group-data-[state=inactive]:opacity-50">New</Badge> */}
+                  Saved
+                  <Badge
+                    className="bg-primary/15 ms-1.5 min-w-5 px-1 transition-opacity group-data-[state=inactive]:opacity-50"
+                    variant="secondary">
+                      {newsletters.filter(nl => nl.readLater || nl.incomplete).length}
+                  </Badge>
                 </TabsTrigger>
               </TabsList>
               <ScrollBar orientation="horizontal" />
@@ -334,40 +489,15 @@ const handleNewsletterClick = (newsletter) => {
                         duration: durationFilter,
                         providers: selectedProviders,
                         readStatus: readFilter
-                          }).map((nl) => {
-                        const subject = nl?.subject || 'No Subject'
-                        const from = nl?.from || 'Unknown Sender';
-                        const date = nl?.date;
-                        return (
-                          <li 
-                            key={nl?.id} 
-                            className="p-2 border rounded hover:bg-muted cursor-pointer transition-colors"
-                            onClick={() => handleNewsletterClick(nl)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handleNewsletterClick(nl);
-                              }
-                            }}
-                          >
-                            <div className="font-semibold text-sm truncate" title={subject}>{subject}</div>
-                            <div className="text-xs text-muted-foreground truncate" title={from}>{from}</div>
-                            {date && <div className="text-xs text-muted-foreground">{new Date(date).toLocaleDateString()}</div>}
-                            <div className="mt-1">
-                              <span className="text-xs text-blue-600 hover:text-blue-800">Click to read →</span>
-                            </div>
-                          </li>
-                        );
-                      })}
+                          }).map((renderNewsletterItem))
+                          }
                     </ul>
                   </ScrollArea>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
-
+              {/*Bookmarking space */}
           <TabsContent value="tab-2">
             <Card>
               <CardHeader>
@@ -377,26 +507,57 @@ const handleNewsletterClick = (newsletter) => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p>Bookmark feature coming soon.</p>
+                {(() => {
+        const bookmarkedNewsletters = newsletters.filter(nl => nl.bookmark);
+        return bookmarkedNewsletters.length > 0 ? (
+          <ScrollArea className="h-[300px]">
+            <ul className="space-y-2">
+              {bookmarkedNewsletters.map(renderNewsletterItem)}
+            </ul>
+          </ScrollArea>
+        ) : (
+          <p>No bookmarked newsletters yet.</p>
+        );
+      })()}
               </CardContent>
             </Card>
           </TabsContent>
-
+              {/*incomplete/read later space */}
           <TabsContent value="tab-3">
             <Card>
               <CardHeader>
-                <CardTitle>Read Later</CardTitle>
+                <CardTitle>Saved</CardTitle>
                 <CardDescription>
-                  Newsletters you've marked to read later.
+                  Newsletters marked for read later and incomplete newsletters.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p>Read later feature coming soon.</p>
+                {(() => {
+        const savedNewsletters = newsletters.filter(nl => nl.readLater || nl.incomplete);
+        return savedNewsletters.length > 0 ? (
+          <ScrollArea className="h-[300px]">
+            <ul className="space-y-2">
+              {savedNewsletters.map(renderNewsletterItem)}
+            </ul>
+          </ScrollArea>
+        ) : (
+          <p>No saved newsletters yet.</p>
+        );
+      })()}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       )}
+      {contextMenu.isOpen && (
+      <ContextMenu
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
+        newsletter={contextMenu.newsletter}
+        onClose={closeContextMenu}
+        onBookmark={handleBookmark}
+        onReadLater={handleReadLater}
+      />)}
     </div>
   );
 }

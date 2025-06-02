@@ -9,7 +9,8 @@
     "identity",
     "alarms",
     "tabs",
-    "webNavigation"
+    "webNavigation",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://mail.google.com/*",
@@ -45,7 +46,8 @@
     "client_id": "214053972459-5vojsk25jgfgiov072bmmi2qh605d2nc.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/gmail.readonly"
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.modify"
     ]
   }
 }
