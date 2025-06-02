@@ -171,39 +171,38 @@ console.log(isoStringGMT); // Output will be in the format 2025-05-15T23:58:43.0
 console.log(isAfter(isoStringGMT,new Date()))
 */
 
+const extractProviderInfo = (from) => {
+  const matches = from.match(/(.*?)\s*<(.+?)>/);
+  if (matches) {
+    const [, label, email] = matches; //first element contains full match
+    return {
+            value: email,
+            label: label.trim() || email
+          }
+  }
+  return { value: from, label: from };
+};
 
+const getUniqueProviders = (newsletters) => {
+   if (!Array.isArray(newsletters) || newsletters.length === 0) {
+    return [{ value: "all", label: "All" }];
+  }
+  const providers = new Map();
+  providers.set("all", { value: "all", label: "All" });
 
-const originalData = [
-  {value: 'all', label: 'All'},
-  {value: 'noreply@skool.com', label: '"Wifi Life (Skool)"'},
-  {value: 'noreply@skool.com', label: '"AI For Professionals (Free) (Skool)"'},
-  {value: 'no-reply@leetcode.com', label: 'LeetCode'},
-  {value: 'submissions@vscode.email', label: '"VSCode.Email"'},
-  {value: 'noreply@skool.com', label: '"The AI Report Free Community (Skool)"'},
-  {value: 'hi@frontendmentor.io', label: 'Matt from Frontend Mentor'},
-  {value: 'submissions@webtoolsweekly.com', label: 'Web Tools Weekly'},
-  {value: 'moneygrowthnewsletter@mail.beehiiv.com', label: 'Money Growth Newsletter'},
-  {value: 'newsletters@techcrunch.com', label: 'TechCrunch'},
-  {value: 'hi@deeperlearning.producthunt.com', label: 'The Frontier by Product Hunt'},
-  {value: 'theaireport@mail.beehiiv.com', label: 'The AI Report'},
-  {value: 'bytebytego@substack.com', label: 'ByteByteGo'},
-  {value: 'noreply@sourcegraph.com', label: 'Sourcegraph'},
-  {value: 'pragmaticengineer@substack.com', label: 'The Pragmatic Engineer'},
-  {value: 'yo@dev.to', label: 'DEV Community Digest'}
-];
-
-console.log(originalData[0].label); // Outputs: All
-console.log(originalData.length);   // Outputs: 16
-function cleanLabels(dataArray) {
-  return dataArray.map(item => {
-    if (typeof item.label === 'string') {
-      // Use replace() with a regex to remove leading/trailing double quotes
-      // The regex /^"|"$/g matches " at the start (^) or at the end ($) of the string.
-      return { ...item, label: item.label.replace(/^"|"$/g, '') };
+  newsletters.forEach(nl => {
+    if (nl?.from) {
+        const providerInfo=extractProviderInfo(nl.from)
+        if (!providers.has(providerInfo.value)) {
+          providers.set(providerInfo.value,providerInfo );
+        }
+      }
     }
-    return item; // Return item as is if label is not a string
-  });
-}
+  );
+
+  return Array.from(providers.values())
+};
 
 
-console.log(cleanLabels(originalData))
+console.log(getUniqueProviders(newsletters))
+

@@ -1,9 +1,10 @@
 // Initialize GIS and GAPI
 //use functions in storage js to store newsletters
 import { getAuthToken, removeAuthToken, getUserInfo } from '../src/auth/auth.js';
-import { fetchNewslettersFromGmail } from '../src/api/gmail.js';
+import { fetchNewslettersFromGmail,fetchEmailContent,parseEmailContent  } from '../src/api/gmail.js';
 // import { getAuthToken, removeAuthToken, getUserInfo } from './auth.js';
-// import { fetchNewslettersFromGmail } from './gmail.js';
+// import { fetchNewslettersFromGmail,fetchEmailContent,parseEmailContent } from './gmail.js';
+
 
 // Load Google API client library
 // try {
@@ -21,7 +22,6 @@ async function fetchNewsletters(token) {
     await chrome.storage.local.set({ newsletters: newsletters || [] });
     console.log('Newsletters fetched and stored:', newsletters);
     const localResult = await chrome.storage.local.get('newsletters');
-    console.log("Newsletters from local storage : ",localResult)
   } catch (error) {
     console.error('Error during newsletter fetch:', error);
     if (error.message?.includes('401') || error.status === 401 || error.message?.toLowerCase().includes('token has been expired or revoked')) {
@@ -158,8 +158,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     getAuthStatus().then(sendResponse);
     return true;
   }
+  else if (request.action === 'getEmailContent') {
+    // Add new handler for email content
+    handleGetEmailContent(request.messageId).then(sendResponse);
+    return true;
+  }
   return false;
 });
+
+
+//function to ping "fetchEmailContent"
+async function handleGetEmailContent(messageId) {
+  try {
+    const { authToken } = await chrome.storage.local.get('authToken');
+    if (!authToken) {
+      throw new Error('No auth token available');
+    }
+
+    const emailData = await fetchEmailContent(authToken, messageId);
+    const parsedContent = parseEmailContent(emailData);
+    
+    return { success: true, content: parsedContent, rawData: emailData };
+  } catch (error) {
+    console.error('Error fetching email content:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 
 /*const CLIENT_ID = encodeURIComponent('1062713297927-2r9vfe6fbmgc80s5r8m5a77v9ir42jm3.apps.googleusercontent.com');
 const RESPONSE_TYPE = encodeURIComponent('id_token');

@@ -25,6 +25,10 @@ const apiDestPath=path.join(__dirname,'../../dist/gmail.js')
 const storageSrcPath=path.join(__dirname,'../lib/storage.js')
 const storageDestPath=path.join(__dirname,'../../dist/storage.js')
 
+const readerHtmlSrc = path.join(__dirname, '../../public/reader.html');
+const readerHtmlDest = path.join(__dirname, '../../dist/reader.html');
+
+
 
 
 
@@ -45,6 +49,12 @@ console.log('gmail api functions copied to dist folder');
 
 fs.copyFileSync(storageSrcPath,storageDestPath)
 console.log('storage module copied to dist folder');
+
+if (fs.existsSync(readerHtmlSrc)) {
+  fs.copyFileSync(readerHtmlSrc, readerHtmlDest);
+  console.log('reader.html copied to dist folder');
+}
+
 
 // Copy icon files to dist folder
 const iconSizes = [16, 48, 128];

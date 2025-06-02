@@ -94,16 +94,14 @@ useEffect(() => {
     });
 
     // Listener for storage changes (e.g., new newsletters fetched by background)
-    const storageChangedListener = (changes, area) => {
+const storageChangedListener = (changes, area) => {
       if (area === 'local') {
         if (changes.isAuthenticated) {
           setIsAuthenticated(changes.isAuthenticated.newValue);
         }
         if(changes.newsletters?.newValue){
-          console.log('New Newsletters:', changes.newsletters.newValue);
           setNewsletters(changes.newsletters.newValue);
           setAllProviders(getUniqueProviders(changes.newsletters.newValue));
-          console.log('New Providers:', newProviders);
         }
         if (changes.userInfo) {
           setUserInfo(changes.userInfo.newValue);
@@ -137,10 +135,11 @@ useEffect(() => {
 const extractProviderInfo = (from) => {
   const matches = from.match(/(.*?)\s*<(.+?)>/);
   if (matches) {
+    const [, label, email] = matches; //first element contains full match
     return {
-      value: matches[2], // email address
-      label: matches[1].trim() || matches[2] // display name or email if no name
-    };
+            value: email,
+            label: label.trim() || email
+          }
   }
   return { value: from, label: from };
 };
@@ -154,18 +153,13 @@ const getUniqueProviders = (newsletters) => {
 
   newsletters.forEach(nl => {
     if (nl?.from) {
-      const matches = nl.from.match(/(.*?)\s*<(.+?)>/);
-      if (matches) {
-        const [, label, email] = matches;
-        if (!providers.has(email)) {
-          providers.set(email, {
-            value: email,
-            label: label.trim() || email
-          });
+        const providerInfo=extractProviderInfo(nl.from)
+        if (!providers.has(providerInfo.value)) {
+          providers.set(providerInfo.value,providerInfo );
         }
       }
     }
-  });
+  );
 
   return Array.from(providers.values())
 };
@@ -264,6 +258,14 @@ const applyFilters = (newsletters, { duration, providers, readStatus }) => {
     return <div className="p-4 text-center">Loading...</div>;
   }
 
+//handle newsletter click
+const handleNewsletterClick = (newsletter) => {
+  // Create a new tab with the reader view
+  const readerUrl = chrome.runtime.getURL(`reader.html?messageId=${newsletter.id}`);
+  chrome.tabs.create({ url: readerUrl });
+};
+
+
   return (
     <div className="min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] p-4">
       {!isAuthenticated ? (
@@ -337,10 +339,25 @@ const applyFilters = (newsletters, { duration, providers, readStatus }) => {
                         const from = nl?.from || 'Unknown Sender';
                         const date = nl?.date;
                         return (
-                          <li key={nl?.id} className="p-2 border rounded hover:bg-muted">
+                          <li 
+                            key={nl?.id} 
+                            className="p-2 border rounded hover:bg-muted cursor-pointer transition-colors"
+                            onClick={() => handleNewsletterClick(nl)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleNewsletterClick(nl);
+                              }
+                            }}
+                          >
                             <div className="font-semibold text-sm truncate" title={subject}>{subject}</div>
                             <div className="text-xs text-muted-foreground truncate" title={from}>{from}</div>
                             {date && <div className="text-xs text-muted-foreground">{new Date(date).toLocaleDateString()}</div>}
+                            <div className="mt-1">
+                              <span className="text-xs text-blue-600 hover:text-blue-800">Click to read →</span>
+                            </div>
                           </li>
                         );
                       })}

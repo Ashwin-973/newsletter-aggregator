@@ -65,9 +65,9 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
 
   // A more refined query to catch newsletters might include specific sender patterns
   // or more nuanced keyword combinations if the basic ones are too broad or too narrow.
-  const defaultQuery = 'is:unread category:primary (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list")';
+  const defaultQuery = 'category:primary OR category:promotions OR category:updates OR category:forums (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list") OR "unsubscribe" OR "view in browser" OR "email preferences"';
   const query = queryOptions.query || defaultQuery;
-  const maxResults = queryOptions.maxResults || 50;
+  const maxResults = queryOptions.maxResults || 100;
 
   const listUrl = `${GMAIL_API_BASE_URL}/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`;
 
@@ -101,7 +101,7 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
 
     const newsletterDetailsPromises = messages.map(async (message) => {
       // Request specific metadata headers
-      const messageUrl = `${GMAIL_API_BASE_URL}/messages/${message.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`;
+      const messageUrl = `${GMAIL_API_BASE_URL}/messages/${message.id}?format=full&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`;
       try {
         const msgResponse = await fetch(messageUrl, {
           headers: {
@@ -153,6 +153,116 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
     throw error; // Re-throw the error for the background script to handle
   }
 }
+
+
+// fetch email content on list-click
+export async function fetchEmailContent(token, messageId) {
+  if (!token || !messageId) {
+    throw new Error('Token and messageId are required');
+  }
+
+  const messageUrl = `${GMAIL_API_BASE_URL}/messages/${messageId}?format=full`;
+
+  try {
+    const response = await fetch(messageUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Token has been expired or revoked (401)');
+      }
+      throw new Error(`Failed to fetch email content: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching email content:', error);
+    throw error;
+  }
+}
+
+//decode base64URL
+export function decodeBase64Url(str) {
+  if (!str) return '';
+  
+  // Replace URL-safe characters
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  
+  // Add padding if needed
+  while (str.length % 4) {
+    str += '=';
+  }
+  
+  try {
+    return atob(str);
+  } catch (e) {
+    console.error('Failed to decode base64:', e);
+    return '';
+  }
+}
+
+//parse email content
+export function parseEmailContent(message) {
+  const result = {
+    html: '',
+    text: '',
+    attachments: [],
+    headers: {}
+  };
+
+  // Extract headers
+if (message.payload?.headers) {
+    message.payload.headers.forEach(header => {
+      result.headers[header.name.toLowerCase()] = header.value;
+    });
+  }
+
+  // Parse the message parts
+function parseParts(part) {
+  if (!part) return;
+
+    const mimeType = part.mimeType;
+    const body = part.body;
+
+    if (mimeType === 'text/html' && body?.data) {
+      result.html = decodeBase64Url(body.data);
+    } else if (mimeType === 'text/plain' && body?.data) {
+      result.text = decodeBase64Url(body.data);
+    } else if (mimeType?.startsWith('multipart/')) {
+      // Handle multipart content
+      if (part.parts) {
+        part.parts.forEach(parseParts);
+      }
+    } else if (part.filename && body?.attachmentId) {
+      // Handle attachments
+      result.attachments.push({
+        filename: part.filename,
+        mimeType: mimeType,
+        attachmentId: body.attachmentId,
+        size: body.size
+      });
+    }
+
+    // Recursively parse nested parts
+    if (part.parts) {
+      part.parts.forEach(parseParts);
+    }
+  }
+
+  parseParts(message.payload);
+
+  return result;
+}
+
+
+
+
+
+
 
 /* 
   All GAPI client related code has been removed or commented out below 

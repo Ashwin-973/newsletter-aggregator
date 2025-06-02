@@ -127,23 +127,9 @@ const Providers=[{value: 'all', label: 'All'}, //this mock data when passed dire
 {value: 'pragmaticengineer@substack.com', label: 'The Pragmatic Engineer'},
 {value: 'yo@dev.to', label: 'DEV Community Digest'}]
 
-function cleanLabels(dataArray) {
-  return dataArray.map(item => {
-    if (typeof item?.label === 'string') {
-      // Use replace() with a regex to remove leading/trailing double quotes
-      // The regex /^"|"$/g matches " at the start (^) or at the end ($) of the string.
-      return { ...item, label: item.label.replace(/^"|"$/g, '') };
-    }
-    return item; // Return item as is if label is not a string
-  });
-}
 
-// Type guard function
- /* const normalizeProviders = (data) => {
-    if (!data) return [];
-    if (typeof data === 'string') return [];
-    return Array.isArray(data) ? data : [];
-  };*/
+
+/*ADD TYPE GUARD FUNCTION FOR PROVIDERS */
 
 
 
@@ -158,6 +144,16 @@ export function NewslettersDropdown({onChange,providers=[],value}) {
       setProcessedProviders([]);
       return;
     }
+    function cleanLabels(dataArray) {
+  return dataArray.map(item => {
+    if (typeof item?.label === 'string') {
+      // Use replace() with a regex to remove leading/trailing double quotes
+      // The regex /^"|"$/g matches " at the start (^) or at the end ($) of the string.
+      return { ...item, label: item.label.replace(/^"|"$/g, '') };
+    }
+    return item; // Return item as is if label is not a string
+  });
+}
 
     // Ensure we always have the "All" option
     const normalized = [
@@ -168,19 +164,16 @@ export function NewslettersDropdown({onChange,providers=[],value}) {
       }))
     ].filter(p => p.value && p.label);
 
-    console.log('Normalized providers:', normalized);
-    setProcessedProviders(normalized);
+    setProcessedProviders(cleanLabels(normalized));
   }, [providers]);
 
   console.log("Providers in dropdown : ",processedProviders)
-  console.log(typeof processedProviders)
-  console.log("entered newsletter dropdowm")
   return (
     <div className="*:not-first:mt-2">
       <MultipleSelector
         onChange={onChange}
         commandProps={{
-          label: "Select frameworks",
+          label: "Select Newsletters",
         }}
         value={value}
         options={processedProviders} 
