@@ -97,7 +97,6 @@ const storageChangedListener = (changes, area) => {
     };
   }, []);
 
-console.log("Unique providers :",allProviders)
 
 
 
@@ -339,10 +338,25 @@ const handleNewsletterClick = (newsletter) => {
 
 const handleContextMenu = (e, newsletter) => {
   e.preventDefault();
+  e.stopPropagation()
+  /*tf DOES THIS DO ACTUALLY? */
+//  const popupContainer = document.querySelector('.min-w-\\[1000px\\]');
+  const popupContainer=document.getElementById('popup');
+  const popupRect = popupContainer?.getBoundingClientRect();
+  console.log("Coordinates :",popupRect)
+  const relativeX = popupRect ? e.clientX - popupRect.left : e.clientX;
+  const relativeY = popupRect ? e.clientY - popupRect.top : e.clientY;
+  console.log(`X : ${relativeX} Y :${relativeY} `)
   console.log("Context menu clicked")
+  //menu doesn't overflow popup bounds
+  const menuWidth = 175; 
+  const menuHeight = 80; 
+  const adjustedX = Math.min(relativeX, popupRect.width - menuWidth);
+  const adjustedY = Math.min(relativeY, popupRect.height - menuHeight);
+  console.log(`adjX : ${adjustedX} adjY :${adjustedY} `)
   setContextMenu({
     isOpen: true,
-    position: { x: e.clientX, y: e.clientY },
+    position: { x: adjustedX, y: adjustedY },
     newsletter
   });
 };
@@ -418,7 +432,7 @@ const renderNewsletterItem = (newsletter) => {
   );
 };
   return (
-    <div className="min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] p-4">
+    <div id="popup" className="relative min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] p-4">
       {!isAuthenticated ? (
         <SignIn isLoading={isLoading} handleAuthClick={handleAuthClick} />
       ) : (

@@ -18,9 +18,11 @@ export function ReaderView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [messageId, setMessageId] = useState(null);
-  const [initialScrollPosition, setInitialScrollPosition] = useState(null); // NEW
-  const scrollTimeoutRef = useRef(null); // NEW
-  const hasScrolledToPosition = useRef(false); // NEW
+  const [initialScrollPosition, setInitialScrollPosition] = useState(null); 
+  const scrollTimeoutRef = useRef(null); 
+  const hasScrolledToPosition = useRef(false); 
+  const [showIncompleteDialog, setShowIncompleteDialog] = useState(false); 
+  const [pendingScrollPosition, setPendingScrollPosition] = useState(null);
 
   useEffect(() => {
     // Get messageId from URL parameters
@@ -40,20 +42,38 @@ export function ReaderView() {
       const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
       const scrollPercentage = (scrollPosition / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
       
-      if (scrollPercentage < 80) { // Consider incomplete if less than 80% scrolled
-        const shouldSave = confirm('Do you want to mark this newsletter as incomplete to continue reading later?');
-        if (shouldSave) {
+      if (scrollPercentage < 80) {
+        // Store scroll position and show custom dialog
+        setPendingScrollPosition(scrollPosition);
+        setShowIncompleteDialog(true);
+        
+        // Set a return value to trigger browser's native dialog
+        e.preventDefault();
+        e.returnValue = ''; // This will show browser's generic "leave page?" dialog
+        return '';
+
+        
+      }
+    };
+    //handle page visibility channe when user swicthes/closes tabs
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollPercentage = (scrollPosition / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+        
+        if (scrollPercentage < 80) {
+          // Auto-save as incomplete when user leaves without prompt
           saveScrollPosition(id, scrollPosition);
-        } else {
-          saveScrollPosition(id, null);
         }
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -66,6 +86,21 @@ export function ReaderView() {
       }, 100);
     }
   }, [emailContent, initialScrollPosition]);
+
+  // handle  dialog actions
+  const handleSaveIncomplete = async () => {
+    if (pendingScrollPosition !== null) {
+      await saveScrollPosition(messageId, pendingScrollPosition);
+    }
+    setShowIncompleteDialog(false);
+    setPendingScrollPosition(null);
+  };
+
+  const handleDontSave = async () => {
+    await saveScrollPosition(messageId, null);
+    setShowIncompleteDialog(false);
+    setPendingScrollPosition(null);
+  };
 
 const fetchEmailContent = async (id) => {
     try {
@@ -331,6 +366,31 @@ const saveScrollPosition = async (id, position) => {
           </CardContent>
         </Card>
       </div>
+      {/*custom incomplete dialog */}
+      {showIncompleteDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Save Reading Progress?</h3>
+            <p className="text-gray-600 mb-6">
+              You haven't finished reading this newsletter. Would you like to mark it as incomplete so you can continue reading later?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleDontSave}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Don't Save
+              </button>
+              <button
+                onClick={handleSaveIncomplete}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              >
+                Save Progress
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -167,7 +167,6 @@ export function NewslettersDropdown({onChange,providers=[],value}) {
     setProcessedProviders(cleanLabels(normalized));
   }, [providers]);
 
-  console.log("Providers in dropdown : ",processedProviders)
   return (
     <div className="*:not-first:mt-2">
       <MultipleSelector

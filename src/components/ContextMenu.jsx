@@ -17,15 +17,25 @@ export function ContextMenu({
         onClose();
       }
     };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('contextmenu', handleClickOutside);
+      document.addEventListener('keydown', handleEscape); //esc key support
+      document.body.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('contextmenu', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset'; /*how exactly does this restore scroll? */
+      
     };
   }, [isOpen, onClose]);
 
@@ -44,15 +54,17 @@ export function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed bg-white border border-gray-200 rounded-md shadow-lg py-1 z-50 min-w-[160px]"
+      className="!absolute bg-white border border-gray-200 rounded-md shadow-lg py-1 !z-9999 min-w-[160px]"
       style={{
-        left: position.x,
-        top: position.y,
+        left: `${position.x}px`, //what does this actually do? , maybe it aligns it's position wrt click-coordinates
+        top: `${position.y}px`,
+        zIndex: 9999,
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' 
       }}
     >
       <button
         onClick={handleBookmark}
-        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={newsletter.incomplete} // Disable for incomplete newsletters
       >
         {newsletter.bookmark ? (
@@ -70,7 +82,7 @@ export function ContextMenu({
       
       <button
         onClick={handleReadLater}
-        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={newsletter.incomplete} // Disable for incomplete newsletters
       >
         {newsletter.readLater ? (
