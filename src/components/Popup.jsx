@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { isAfter, isSameDay, subDays,parse} from 'date-fns';
-import { OnboardingProvider, useOnboarding } from "../context/OnboardingContext";
-import { SettingsProvider, useSettings } from "../context/SettingsContext";
+import { useOnboarding } from "../context/OnboardingContext";
+import { useSettings } from "../context/SettingsContext";
 import { DurationDropdown } from "./DurationDropdown";
 import { NewslettersDropdown } from "./NewslettersDropdown";
 import { SegmentedControl } from "./SegmentedControl";
 import { ContextMenu } from "./ContextMenu";
+import { SettingsPanel } from "./SettingsPanel";
 import { SelectProviders } from "./SelectProviders";
 import { SignIn } from "@/auth/SignIn"; // Assuming SignIn component is for UI only now
 import { BoxIcon, HouseIcon, PanelsTopLeftIcon, LogOutIcon } from "lucide-react";
@@ -66,6 +67,7 @@ useEffect(() => {
           const providers = getUniqueProviders(newsletters);
           setAllProviders(providers);
           updateProviders(providers.filter(p => p.value !== 'all'));
+          console.log("Update provider called from init useEffect")
         } catch (error) {
           console.error('Error processing newsletters:', error);
           setAllProviders([]); // Fallback to empty array
@@ -88,6 +90,7 @@ const storageChangedListener = (changes, area) => {
           setNewsletters(changes.newsletters.newValue);
           setAllProviders(getUniqueProviders(changes.newsletters.newValue));
           updateProviders(getUniqueProviders(changes.newsletters.newValue).filter(p => p.value !== 'all'));
+          console.log("Update provider called from storage listener")
         }
         if (changes.userInfo) {
           setUserInfo(changes.userInfo.newValue);
@@ -108,7 +111,7 @@ const storageChangedListener = (changes, area) => {
     return () => {
       chrome.storage.onChanged.removeListener(storageChangedListener);
     };
-  }, [updateProviders]);
+  }, []);  //removed all deps to avoid infinite re-renders (newsletters and updatednewsletters)
 
 
 
@@ -482,6 +485,7 @@ const renderNewsletterItem = (newsletter) => {
               </TabsList>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
+            <SettingsPanel/>
             <Button variant="ghost" size="icon" onClick={handleSignOutClick} title="Sign Out">
               <LogOutIcon size={18} />
             </Button>

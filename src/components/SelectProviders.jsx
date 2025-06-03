@@ -16,13 +16,16 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
 
   // Initialize selected providers
   useEffect(() => {
+    console.log("Why am I running?")
+    if (currentSelected.length === 0) {
     if (isSettingsMode) {
       setCurrentSelected(selectedProviders);
     } else {
       // First time onboarding - all providers selected by default (opt-out approach)
       setCurrentSelected(allProviders);
     }
-  }, [allProviders, selectedProviders, isSettingsMode]);
+  }
+  }, [allProviders,selectedProviders,isSettingsMode]);//effect never runs whehn settings is the only dependency
 
   // Filter providers based on search
   const filteredAvailable = useMemo(() => {
@@ -52,6 +55,7 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
   };
 
   const handleRemoveProvider = (providerToRemove) => {
+    console.log("Current selected :", currentSelected)
     setCurrentSelected(prev => 
       prev.filter(provider => provider.value !== providerToRemove.value)
     );
@@ -85,7 +89,7 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
   };
 
   return (
-    <div className=" p-4 min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] flex items-center justify-center z-50">
+    <div className=" p-4 min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] z-50">
       <div className="bg-white p-6 rounded-lg shadow-lg w-4/5 min-w-4/5 min-h-6/7  max-w-7xl max-h-[90vh] relative flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
@@ -145,13 +149,13 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
         </div>
 
         {/* Provider Lists */}
-        <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
+        <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-[300px]">
           {/* Selected providers */}
           <div className="flex-1">
             <h3 className="font-medium mb-2 text-green-700">
               Selected Providers ({filteredSelected.length})
             </h3>
-            <div className="h-96 p-4 bg-green-50 border border-green-200 rounded-md flex flex-col gap-2 overflow-y-auto">
+            <div className="h-96 p-4 max-h-[270px] bg-green-50 border border-green-200 rounded-md flex flex-col gap-2 overflow-y-auto">
               {filteredSelected.length === 0 ? (
                 <div className="text-gray-500 italic p-4 text-center">
                   {searchTerm ? 'No matching selected providers' : 'No providers selected'}
@@ -187,7 +191,7 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
             <h3 className="font-medium mb-2 text-gray-700">
               Available Providers ({filteredAvailable.length})
             </h3>
-            <div className="h-96 p-4 bg-gray-50 border border-gray-200 rounded-md flex flex-col gap-2 overflow-y-auto">
+            <div className="h-96 p-4 max-h-[270px] bg-gray-50 border border-gray-200 rounded-md flex flex-col gap-2 overflow-y-auto">
               {filteredAvailable.length === 0 ? (
                 <div className="text-gray-500 italic p-4 text-center">
                   {searchTerm ? 'No matching available providers' : 'All providers selected'}

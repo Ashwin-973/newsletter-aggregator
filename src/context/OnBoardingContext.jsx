@@ -19,8 +19,9 @@ export const OnboardingProvider = ({ children }) => {
           'selectedProviders',
           'blockedProviders'
         ]);
+        console.log("Do I keep running?")
 
-        setOnboardingCompleted(result.onboardingCompleted || false);
+        setOnboardingCompleted(result.onboardingCompleted || false); //creates new references everytime , might cause dependency alteration
         setAllProviders(result.allProviders || []);
         setSelectedProviders(result.selectedProviders || []);
         setBlockedProviders(result.blockedProviders || []);
@@ -73,6 +74,7 @@ export const OnboardingProvider = ({ children }) => {
 
     setAllProviders(mergedProviders);
     await saveToStorage({ allProviders: mergedProviders });
+    console.log("Updated providers")
 
     // If onboarding is completed, auto-select new providers (opt-out approach)
     if (onboardingCompleted) {
