@@ -89,7 +89,7 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
   };
 
   return (
-    <div className=" p-4 min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] z-50">
+     <div className={`min-w-[1000px] z-50 ${isSettingsMode?`fixed inset-0 min-w-[900px] bg-black/80 z-10000`:``} p-4  max-w[1200px] min-h-[900px] max-height-[1000px]`}> {/*evaluates values inside curly braces as js expression , as template strings is a js exp */}
       <div className="bg-white p-6 rounded-lg shadow-lg w-4/5 min-w-4/5 min-h-6/7  max-w-7xl max-h-[90vh] relative flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
@@ -149,7 +149,7 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
         </div>
 
         {/* Provider Lists */}
-        <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-[300px]">
+        <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-[300px] max-h-fit">
           {/* Selected providers */}
           <div className="flex-1">
             <h3 className="font-medium mb-2 text-green-700">

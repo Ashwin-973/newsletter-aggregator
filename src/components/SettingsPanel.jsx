@@ -305,7 +305,7 @@ export const SettingsPanel = () => {
       </Button>
 
       {isOpen && (
-        <div className="fixed inset-0 p-4 min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px]  bg-black/80 flex items-center justify-center z-50">
+        <div className="fixed inset-0 p-4 min-w-[950px] max-w[1200px] min-h-[900px] max-height-[1000px]  bg-black/80 flex z-50">
           <div className="bg-white rounded-lg shadow-lg w-4/5 max-w-4xl max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="flex justify-between items-center p-6 border-b">
