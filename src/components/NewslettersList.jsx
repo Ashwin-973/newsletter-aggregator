@@ -61,6 +61,9 @@ const newsletterContent = [
     label: 'It belongs in a museum!',
   },
 ];
+
+
+
 export const NewsletterList=()=>
 {
     return(

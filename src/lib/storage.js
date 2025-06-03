@@ -22,7 +22,6 @@ export async function setAuthState(isAuthorize) {
   await chrome.storage.local.set({ isAuthorize });
 }
 
-
 export async function updateNewsletterInStorage(messageId, updates) {
   try {
     const { newsletters } = await chrome.storage.local.get('newsletters');
@@ -81,4 +80,57 @@ export function mergeNewsletterData(existingNewsletters, newNewsletters) {
       scrollPosition: null
     };
   });
+}
+
+export async function getOnboardingState() {
+  const result = await chrome.storage.local.get([
+    'onboardingCompleted',
+    'allProviders',
+    'selectedProviders',
+    'blockedProviders'
+  ]);
+  
+  return {
+    onboardingCompleted: result.onboardingCompleted || false,
+    allProviders: result.allProviders || [],
+    selectedProviders: result.selectedProviders || [],
+    blockedProviders: result.blockedProviders || []
+  };
+}
+
+export async function setOnboardingState(state) {
+  await chrome.storage.local.set(state);
+}
+
+export async function getUserPreferences() {
+  const { userPreferences } = await chrome.storage.local.get('userPreferences');
+  return userPreferences || {
+    theme: 'light',
+    autoMarkRead: true,
+    notificationsEnabled: false,
+    defaultTab: 'tab-1',
+    viewMode: 'comfortable'
+  };
+}
+
+export async function setUserPreferences(preferences) {
+  await chrome.storage.local.set({ userPreferences: preferences });
+}
+
+export async function getAllProviders() {
+  const { allProviders } = await chrome.storage.local.get('allProviders');
+  return allProviders || [];
+}
+
+export async function setAllProviders(providers) {
+  await chrome.storage.local.set({ allProviders: providers });
+}
+
+export async function getBlockedProviders() {
+  const { blockedProviders } = await chrome.storage.local.get('blockedProviders');
+  return blockedProviders || [];
+}
+
+export async function setBlockedProviders(providers) {
+  await chrome.storage.local.set({ blockedProviders: providers });
 }

@@ -21,11 +21,24 @@ const GMAIL_FETCH_ALARM = 'gmailFetchAlarm';
 async function fetchNewsletters(token) {
   try {
     const newsletters = await fetchNewslettersFromGmail(token);
+    const { blockedProviders = [] } = await chrome.storage.local.get('blockedProviders');
+    //filter newsletters from blocked ones
+    const filteredNewsletters = newsletters.filter(newsletter => {
+      if (!newsletter.from) return true;
+      
+      return !blockedProviders.some(blocked => 
+        newsletter.from.includes(blocked.value)
+      );
+    });
+    console.log("Filtered Newsletters : ",filteredNewsletters)
+    //update unique provider list
+    await updateUniqueProviders(newsletters); 
     //get existing newsletters to preserve user data
     const { newsletters: existingNewsletters } = await chrome.storage.local.get('newsletters');
-    const mergedNewsletters = mergeNewsletterData(existingNewsletters || [], newsletters || []);
+    console.log("Existing newsletters :", existingNewsletters)
+    const mergedNewsletters = mergeNewsletterData(existingNewsletters || [], filteredNewsletters || []);
     await chrome.storage.local.set({ newsletters: mergedNewsletters || [] });
-    console.log('Newsletters fetched and stored:', mergedNewsletters);
+    console.log('Newsletters fetched and stored(merged) :', mergedNewsletters);
   } catch (error) {
     console.error('Error during newsletter fetch:', error);
     if (error.message?.includes('401') || error.status === 401 || error.message?.toLowerCase().includes('token has been expired or revoked')) {
@@ -34,6 +47,48 @@ async function fetchNewsletters(token) {
     }
   }
 }
+
+async function updateUniqueProviders(newsletters) {
+  try {
+    const { allProviders = [] } = await chrome.storage.local.get('allProviders');
+    
+    // Extract providers from newsletters
+    const extractProviderInfo = (from) => {
+      const matches = from.match(/(.*?)\s*<(.+?)>/);
+      if (matches) {
+        const [, label, email] = matches;
+        return {
+          value: email,
+          label: label.trim() || email
+        };
+      }
+      return { value: from, label: from };
+    };
+    
+    const newProviders = [];
+    const existingValues = new Set(allProviders.map(p => p.value));
+    
+    newsletters.forEach(newsletter => {
+      if (newsletter.from) {
+        const providerInfo = extractProviderInfo(newsletter.from);
+        if (!existingValues.has(providerInfo.value)) {
+          newProviders.push(providerInfo);
+          existingValues.add(providerInfo.value);
+        }
+      }
+    });
+    
+    if (newProviders.length > 0) {
+      const updatedProviders = [...allProviders, ...newProviders];
+      await chrome.storage.local.set({ allProviders: updatedProviders });
+      console.log('Added new providers:', newProviders.length);
+    }
+  } catch (error) {
+    console.error('Error updating unique providers:', error);
+  }
+}
+
+
 
 // Authentication and State Management
 async function handleLogin() {

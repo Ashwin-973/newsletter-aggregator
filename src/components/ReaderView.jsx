@@ -18,6 +18,9 @@ export function ReaderView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [messageId, setMessageId] = useState(null);
+  // const [readingStartTime, setReadingStartTime] = useState(null);
+  // const [isBookmarked, setIsBookmarked] = useState(false);
+  // const [isSaved, setIsSaved] = useState(false);
   const [initialScrollPosition, setInitialScrollPosition] = useState(null); 
   const scrollTimeoutRef = useRef(null); 
   const hasScrolledToPosition = useRef(false); 

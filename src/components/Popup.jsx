@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { isAfter, isSameDay, subDays,parse} from 'date-fns';
+import { OnboardingProvider, useOnboarding } from "../context/OnboardingContext";
+import { SettingsProvider, useSettings } from "../context/SettingsContext";
 import { DurationDropdown } from "./DurationDropdown";
 import { NewslettersDropdown } from "./NewslettersDropdown";
 import { SegmentedControl } from "./SegmentedControl";
 import { ContextMenu } from "./ContextMenu";
+import { SelectProviders } from "./SelectProviders";
 import { SignIn } from "@/auth/SignIn"; // Assuming SignIn component is for UI only now
 import { BoxIcon, HouseIcon, PanelsTopLeftIcon, LogOutIcon } from "lucide-react";
 import {
@@ -38,7 +41,15 @@ export function Popup() {
   isOpen: false,
   position: { x: 0, y: 0 },
   newsletter: null
-}); //to open/close context menu
+}); 
+
+const { 
+    onboardingCompleted, 
+    updateProviders, 
+    isLoading: onboardingLoading 
+  } = useOnboarding();
+
+const { userPreferences } = useSettings();
 
   // Check auth status on component mount
 useEffect(() => {
@@ -54,6 +65,7 @@ useEffect(() => {
           setNewsletters(newsletters);
           const providers = getUniqueProviders(newsletters);
           setAllProviders(providers);
+          updateProviders(providers.filter(p => p.value !== 'all'));
         } catch (error) {
           console.error('Error processing newsletters:', error);
           setAllProviders([]); // Fallback to empty array
@@ -75,6 +87,7 @@ const storageChangedListener = (changes, area) => {
         if(changes.newsletters?.newValue){
           setNewsletters(changes.newsletters.newValue);
           setAllProviders(getUniqueProviders(changes.newsletters.newValue));
+          updateProviders(getUniqueProviders(changes.newsletters.newValue).filter(p => p.value !== 'all'));
         }
         if (changes.userInfo) {
           setUserInfo(changes.userInfo.newValue);
@@ -95,7 +108,7 @@ const storageChangedListener = (changes, area) => {
     return () => {
       chrome.storage.onChanged.removeListener(storageChangedListener);
     };
-  }, []);
+  }, [updateProviders]);
 
 
 
@@ -325,8 +338,12 @@ const applyFilters = (newsletters, { duration, providers, readStatus }) => {
     });
   };
 
-  if (isLoading && !isAuthenticated) {
+if (isLoading && !isAuthenticated) {
     return <div className="p-4 text-center">Loading...</div>;
+  }
+
+if (isAuthenticated && !onboardingCompleted && !onboardingLoading) {
+    return <SelectProviders />;
   }
 
 //handle newsletter click
@@ -435,7 +452,7 @@ const renderNewsletterItem = (newsletter) => {
     <div id="popup" className="relative min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] p-4">
       {!isAuthenticated ? (
         <SignIn isLoading={isLoading} handleAuthClick={handleAuthClick} />
-      ) : (
+      ) : ( 
         <Tabs className="max-w-full"  defaultValue="tab-1">
           <div className="flex justify-between items-center mb-3">
             <ScrollArea className="flex-grow">

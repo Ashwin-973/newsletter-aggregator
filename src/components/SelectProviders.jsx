@@ -1,110 +1,181 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "./ui/button";
-import { BadgePlus } from 'lucide-react'
-import { BadgeMinus } from 'lucide-react'
-import { X } from "lucide-react";
+import { BadgePlus, BadgeMinus, X, Search } from 'lucide-react';
+import { useOnboarding } from "../context/OnboardingContext";
 
-// All providers - would come from props in real implementation
-const allProvidersArray = [
-  "The New Stack <tns@thenewstack.io>",
-  "Team Unstop <noreply@dare2compete.news>",
-  "\"Heikki @ Neon\" <feedback@neon.tech>",
-  "\"Eric at Bolt.new\" <ericsimons@stackblitz.com>",
-  "Internshala <student@updates.internshala.com>",
-  "Pinterest <recommendations@discover.pinterest.com>",
-  "Oracle Talent Acquisition <ota@career.oracle.com>",
-  "Internshala Trainings <trainings@updates.internshala.com>",
-  "Glassdoor Jobs <noreply@glassdoor.com>",
-  "Motiff <service@service.motiff.com>",
-  "GDG on Campus Solution Challenge <admin@no-reply.hack2skill.com>",
-  "Spline Tutorials <hello@mail.spline.design>",
-  "Adobe Creative Cloud <mail@email.adobe.com>",
-  "Mobbin <newsletter@mobbin.com>",
-  "Pinterest <recommendations@inspire.pinterest.com>",
-  "Oracle Talent Acquisition <noreply@oracle.com>",
-  "Letterboxd <news@letterboxd.com>",
-  "Changelog News <news@changelog.com>",
-];
+export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
+  const { 
+    allProviders, 
+    selectedProviders, 
+    completeOnboarding, 
+    updatePreferences 
+  } = useOnboarding();
 
-// Initial filtered providers from heuristics - in real code would come from props
-const initialFiltered = [
-  "The New Stack <tns@thenewstack.io>",
-  "\"Heikki @ Neon\" <feedback@neon.tech>",
-  "\"Eric at Bolt.new\" <ericsimons@stackblitz.com>",
-  "Mobbin <newsletter@mobbin.com>",
-  "Changelog News <news@changelog.com>",
-];
+  const [currentSelected, setCurrentSelected] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
-export const SelectProviders = () => {
-  // State for selected/filtered providers
-  const [selectedProviders, setSelectedProviders] = useState(initialFiltered);
-  
-  // Calculate remaining providers using useMemo for performance
-  const remainingProviders = useMemo(() => {
-    return allProvidersArray.filter(
-      provider => !selectedProviders.includes(provider)
+  // Initialize selected providers
+  useEffect(() => {
+    if (isSettingsMode) {
+      setCurrentSelected(selectedProviders);
+    } else {
+      // First time onboarding - all providers selected by default (opt-out approach)
+      setCurrentSelected(allProviders);
+    }
+  }, [allProviders, selectedProviders, isSettingsMode]);
+
+  // Filter providers based on search
+  const filteredAvailable = useMemo(() => {
+    const available = allProviders.filter(
+      provider => !currentSelected.some(selected => selected.value === provider.value)
     );
-  }, [selectedProviders]);
-
-  // Handle adding a provider from remaining to selected
-  function handleAddProvider(providerToAdd) {
-    setSelectedProviders(prev => [...prev, providerToAdd]);
-  }
-
-  // Handle removing a provider from selected to remaining
-  function handleRemoveProvider(providerToRemove) {
-    setSelectedProviders(prev => 
-      prev.filter(provider => provider !== providerToRemove)
+    
+    if (!searchTerm) return available;
+    
+    return available.filter(provider =>
+      provider.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      provider.value.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }
+  }, [allProviders, currentSelected, searchTerm]);
 
-  // Close the overlay - would need to be connected to parent component
-  function handleClose() {
-    // In real implementation: setIsOpen(false) or similar
-    console.log("Close overlay");
-  }
+  const filteredSelected = useMemo(() => {
+    if (!searchTerm) return currentSelected;
+    
+    return currentSelected.filter(provider =>
+      provider.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      provider.value.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [currentSelected, searchTerm]);
 
-  // Save selected providers - would need to be connected to parent component
-  function handleSave() {
-    // In real implementation: save to parent state or API
-    console.log("Save providers:", selectedProviders);
-    handleClose();
-  }
+  const handleAddProvider = (providerToAdd) => {
+    setCurrentSelected(prev => [...prev, providerToAdd]);
+  };
+
+  const handleRemoveProvider = (providerToRemove) => {
+    setCurrentSelected(prev => 
+      prev.filter(provider => provider.value !== providerToRemove.value)
+    );
+  };
+
+  const handleSelectAll = () => {
+    setCurrentSelected(allProviders);
+  };
+
+  const handleDeselectAll = () => {
+    setCurrentSelected([]);
+  };
+
+  const handleSave = async () => {
+    try {
+      if (isSettingsMode) {
+        await updatePreferences(currentSelected);
+        if (onClose) onClose();
+      } else {
+        await completeOnboarding(currentSelected);
+      }
+    } catch (error) {
+      console.error('Error saving provider preferences:', error);
+    }
+  };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
 
   return (
-    // Overlay container
-    <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-4/5 max-w-7xl relative">
+    <div className=" p-4 min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg shadow-lg w-4/5 min-w-4/5 min-h-6/7  max-w-7xl max-h-[90vh] relative flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Manage Newsletter Providers</h2>
-          <button 
-            onClick={handleClose}
-            className="p-1 hover:bg-gray-100 rounded-full"
-          >
-            <X size={20} />  {/*disable this during the first time */}
-          </button>
+          <div>
+            <h2 className="text-xl font-bold">
+              {isSettingsMode ? 'Update Newsletter Preferences' : 'Choose Your Newsletter Providers'}
+            </h2>
+            <p className="text-gray-600 text-sm mt-1">
+              {isSettingsMode 
+                ? 'Modify which newsletter providers you want to receive emails from'
+                : 'Select the newsletter providers you want to receive emails from. You can change this later in settings.'
+              }
+            </p>
+          </div>
+          {isSettingsMode && (
+            <button 
+              onClick={handleClose}
+              className="p-1 hover:bg-gray-100 rounded-full"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
 
-        {/* Lists container */}
-        <div className="flex flex-col md:flex-row gap-4 ">
+        {/* Search and Stats */}
+        <div className="mb-4 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              placeholder="Search providers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+          <div className="flex justify-between items-center text-sm text-gray-600">
+            <span>
+              {currentSelected.length} of {allProviders.length} providers selected
+            </span>
+            <div className="space-x-2">
+              <button
+                onClick={handleSelectAll}
+                className="text-blue-600 hover:text-blue-800"
+              >
+                Select All
+              </button>
+              <button
+                onClick={handleDeselectAll}
+                className="text-red-600 hover:text-red-800"
+              >
+                Deselect All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Provider Lists */}
+        <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
           {/* Selected providers */}
-          <div className="flex-1 max-w-1/2">
-            <h3 className="font-medium mb-2">Selected Providers</h3>
-            <div className="max-h-96 p-4 bg-gray-200 border-1 border-gray-100 rounded-md flex flex-col items-center gap-2 overflow-y-auto">
-              {selectedProviders.length === 0 ? (
-                <div className="text-gray-500 italic p-4">No providers selected</div>
+          <div className="flex-1">
+            <h3 className="font-medium mb-2 text-green-700">
+              Selected Providers ({filteredSelected.length})
+            </h3>
+            <div className="h-96 p-4 bg-green-50 border border-green-200 rounded-md flex flex-col gap-2 overflow-y-auto">
+              {filteredSelected.length === 0 ? (
+                <div className="text-gray-500 italic p-4 text-center">
+                  {searchTerm ? 'No matching selected providers' : 'No providers selected'}
+                </div>
               ) : (
-                selectedProviders.map((provider, idx) => (
-                  <div key={`selected-${idx}`} className="w-full max-h-44 p-2 bg-white font-medium flex justify-between items-center rounded shadow-sm">
-                    <span className="truncate mr-2">{provider}</span>
-                    <button 
-                      className="flex-shrink-0" 
-                      onClick={() => handleRemoveProvider(provider)}
-                      title="Remove from selected"
-                    >
-                      <BadgeMinus color="red" />
-                    </button>
+                filteredSelected.map((provider, idx) => (
+                  <div key={`selected-${provider.value}`} className="w-full p-3 bg-white border border-green-300 rounded shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate" title={provider.label}>
+                          {provider.label}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate" title={provider.value}>
+                          {provider.value}
+                        </div>
+                      </div>
+                      <button 
+                        className="flex-shrink-0 ml-2" 
+                        onClick={() => handleRemoveProvider(provider)}
+                        title="Remove from selected"
+                      >
+                        <BadgeMinus className="text-red-500 hover:text-red-700" size={18} />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -112,22 +183,35 @@ export const SelectProviders = () => {
           </div>
 
           {/* Available providers */}
-          <div className="flex-1 max-w-1/2">
-            <h3 className="font-medium mb-2">Available Providers</h3>
-            <div className="max-h-96 p-4 bg-gray-200 border-1 border-gray-100 rounded-md flex flex-col items-center gap-2 overflow-y-auto">
-              {remainingProviders.length === 0 ? (
-                <div className="text-gray-500 italic p-4">All providers selected</div>
+          <div className="flex-1">
+            <h3 className="font-medium mb-2 text-gray-700">
+              Available Providers ({filteredAvailable.length})
+            </h3>
+            <div className="h-96 p-4 bg-gray-50 border border-gray-200 rounded-md flex flex-col gap-2 overflow-y-auto">
+              {filteredAvailable.length === 0 ? (
+                <div className="text-gray-500 italic p-4 text-center">
+                  {searchTerm ? 'No matching available providers' : 'All providers selected'}
+                </div>
               ) : (
-                remainingProviders.map((provider, idx) => (
-                  <div key={`remaining-${idx}`} className="w-full max-h-44 p-2 bg-white font-medium flex justify-between items-center rounded shadow-sm">
-                    <span className="truncate mr-2">{provider}</span>
-                    <button 
-                      className="flex-shrink-0" 
-                      onClick={() => handleAddProvider(provider)}
-                      title="Add to selected"
-                    >
-                      <BadgePlus color="green" />
-                    </button>
+                filteredAvailable.map((provider, idx) => (
+                  <div key={`available-${provider.value}`} className="w-full p-3 bg-white border border-gray-300 rounded shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate" title={provider.label}>
+                          {provider.label}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate" title={provider.value}>
+                          {provider.value}
+                        </div>
+                      </div>
+                      <button 
+                        className="flex-shrink-0 ml-2" 
+                        onClick={() => handleAddProvider(provider)}
+                        title="Add to selected"
+                      >
+                        <BadgePlus className="text-green-500 hover:text-green-700" size={18} />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -135,23 +219,27 @@ export const SelectProviders = () => {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-6 flex justify-end gap-2">
-          <Button 
-            variant="outline" 
-            onClick={handleClose}
-            className="px-4"
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSave}
-            className="px-4"
-          >
-            Save Changes
-          </Button>
+        {/* Footer */}
+        <div className="flex justify-between items-center mt-4 pt-4 border-t">
+          <div className="text-sm text-gray-600">
+            {allProviders.length - currentSelected.length} providers will be blocked
+          </div>
+          <div className="space-x-3">
+            {isSettingsMode && (
+              <Button variant="outline" onClick={handleClose}>
+                Cancel
+              </Button>
+            )}
+            <Button 
+              onClick={handleSave}
+              disabled={allProviders.length === 0}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isSettingsMode ? 'Update Preferences' : 'Complete Setup'}
+            </Button>
+          </div>
         </div>
       </div>
-     </div>
-  )
-}
+    </div>
+  );
+};
