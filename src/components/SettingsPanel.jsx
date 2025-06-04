@@ -299,7 +299,7 @@ export const SettingsPanel = () => {
         size="icon" 
         onClick={openModal} 
         title="Settings"
-        className="hover:bg-gray-100"
+        // className="hover:bg-gray-100"
       >
         <Settings size={18} />
       </Button>
