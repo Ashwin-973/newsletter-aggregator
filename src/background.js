@@ -93,14 +93,15 @@ async function updateUniqueProviders(newsletters) {
 // Authentication and State Management
 async function handleLogin() {
   try {
-    const token = await getAuthToken(true);
-    if (token) {
-      await chrome.storage.local.set({ isAuthenticated: true, authToken: token });
-      const userInfo = await getUserInfo(token);
+    const {accessToken,expiresIn} = await getAuthToken(true);
+    if (accessToken && expiresIn) {
+      const tokenExpiry = Date.now() + (parseInt(expiresIn) * 1000);
+      await chrome.storage.local.set({ isAuthenticated: true, authToken: accessToken,tokenExpiry:tokenExpiry });
+      const userInfo = await getUserInfo(accessToken);
       await chrome.storage.local.set({ userInfo });
       console.log('User signed in:', userInfo);
-      console.log("Fetching newsletters with token : ",token)
-      await fetchNewsletters(token);
+      console.log("Fetching newsletters with accessToken : ",accessToken)
+      await fetchNewsletters(accessToken);
       chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 15 });
       return { success: true, userInfo };
     }
@@ -116,22 +117,16 @@ async function handleLogin() {
 async function handleLogout() {
   let success = false;
   try {
-    const { authToken } = await chrome.storage.local.get('authToken');
-    if (authToken) {
-      await removeAuthToken(authToken);
-    }
-    await removeAuthToken(null);
+    let { authToken } = await chrome.storage.local.get('authToken');
+    console.log("auth token before : ",authToken)
+    await removeAuthToken()
+    authToken = await chrome.storage.local.get('authToken');
+    console.log("auth token after : ",authToken)
     success = true;
   } catch (error) {
     console.error('Error removing auth token during logout:', error);
     success = false;
   } finally {
-    await chrome.storage.local.set({
-      isAuthenticated: false,
-      authToken: null,
-      userInfo: null,
-      newsletters: []
-    });
     chrome.alarms.clear(GMAIL_FETCH_ALARM);
     console.log('User signed out and alarm cleared. Logout success:', success);
   }
@@ -206,6 +201,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
+//listens for events within extension scope
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'login') {
     handleLogin().then(sendResponse);
