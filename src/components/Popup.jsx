@@ -10,6 +10,7 @@ import { SettingsPanel } from "./SettingsPanel";
 import { SelectProviders } from "./SelectProviders";
 import { SignIn } from "@/auth/SignIn"; // Assuming SignIn component is for UI only now
 import { BoxIcon, HouseIcon, PanelsTopLeftIcon, LogOutIcon } from "lucide-react";
+import { IconRestore } from "@tabler/icons-react";
 import {
   Card,
   CardContent,
@@ -27,6 +28,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { ToolTip } from "./ToolTip";
 
 export function Popup() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -35,7 +37,7 @@ export function Popup() {
   const [allProviders,setAllProviders] = useState([]);
   const [userInfo, setUserInfo] = useState(null);
   const [readFilter, setReadFilter] = useState("all"); // Commented out as unused for now
-  const [durationFilter,setDurationFilter]=useState("")
+  const [durationFilter,setDurationFilter]=useState("1")
   const [selectedProviders,setSelectedProviders]=useState([])
   const [resetState,setResetState]=useState(false)
   const [contextMenu, setContextMenu] = useState({  
@@ -452,11 +454,11 @@ const renderNewsletterItem = (newsletter) => {
   );
 };
   return (
-    <div id="popup" className="relative min-w-[1000px] max-w[1200px] min-h-[900px] max-height-[1000px] p-4">
+    <div id="popup" className="relative p-4 w-[780px] h-[600px] max-w-[780px] max-h-[600px]">
       {!isAuthenticated ? (
         <SignIn isLoading={isLoading} handleAuthClick={handleAuthClick} />
       ) : ( 
-        <Tabs className="max-w-full"  defaultValue="tab-1">
+        <Tabs className="max-w-full max-h-full"  defaultValue="tab-1">
           <div className="flex justify-between items-center mb-3">
             <ScrollArea className="flex-grow">
               <TabsList>
@@ -485,14 +487,18 @@ const renderNewsletterItem = (newsletter) => {
               </TabsList>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
-            <SettingsPanel/>
-            <Button variant="ghost" size="icon" onClick={handleSignOutClick} title="Sign Out">
-              <LogOutIcon size={18} />
-            </Button>
+            <ToolTip info="Settings">
+              <SettingsPanel/>
+            </ToolTip>
+            <ToolTip info="Logout">
+              <Button variant="ghost" size="icon" onClick={handleSignOutClick} title="Sign Out">
+                <LogOutIcon size={18} />
+              </Button>
+            </ToolTip>
           </div>
 
-          <TabsContent value="tab-1">
-            <Card className="mb-4">
+          <TabsContent  value="tab-1">
+            <Card className="mb-4 ">  {/*take whatever space you need */}
               <CardHeader>
                 <CardTitle>Filter Newsletters</CardTitle>
                 <CardDescription>
@@ -500,25 +506,29 @@ const renderNewsletterItem = (newsletter) => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="max-w-[800px] flex justify-center items-center gap-4 space-x-2">
+                <div className="max-w-full flex justify-around items-center gap-4 ">
                   <DurationDropdown onChange={handleDurationStatus} value={durationFilter}/>
                   <NewslettersDropdown onChange={handleProviderStatus}  providers={allProviders} value={selectedProviders || []} />   {/*search is happening through value and not label*/}
                   <SegmentedControl defaultValue="All" onChange={handleReadStatus} value={readFilter}/>
-                  <button className="bg-slate-600 rounded-xl whitespace-nowrap" type='button' onClick={handleReset} disabled={!resetState}>Reset filters</button> {/* write proper disabled/opaque logic for this */}
+                  <ToolTip info="Reset Filters">
+                    <Button variant="ghost"  onClick={handleReset} disabled={!resetState}>
+                        <IconRestore size={64}/>
+                    </Button> {/* write proper disabled/opaque logic for this */}
+                  </ToolTip>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
+            <Card className="">  {/*claim any positve extra space left by card1 */}
+              <CardHeader>  {/*again take whatever space you need */}
                 <CardTitle>Your Newsletters</CardTitle>
                 {userInfo && <CardDescription>Logged in as {userInfo.email}</CardDescription>}
               </CardHeader>
-              <CardContent>
+              <CardContent className=""> {/*you get the leftover space */}
                 {isLoading && newsletters.length === 0 && <p>Loading newsletters...</p>}
                 {!isLoading && newsletters.length === 0 && <p>No newsletters found or yet to be fetched.</p>}
                 {newsletters.length > 0 && (
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="max-h-[234px]">  {/*hacky fix */}
                     <ul className="space-y-2">
                       {applyFilters(newsletters, {
                         duration: durationFilter,

@@ -49,7 +49,7 @@ export const SegmentedControl = ({
 
   return (
     <div
-      className={`relative p-1 w-[240px] max-w-[300px] bg-gray-100 rounded-lg dark:bg-gray-800 ${className}`}
+      className={`relative p-1 min-w-0 bg-gray-100 rounded-lg dark:bg-gray-800 ${className}`}
       ref={controlRef}
       role="tablist"
       aria-label="Message filter"

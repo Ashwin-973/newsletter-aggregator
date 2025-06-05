@@ -38,11 +38,12 @@ const handleCustomDuration = (e) => {
     // setDurationFilter([date,time])   //why don't it accept objects?
     onChange([date,time])
     closeModal()
+    onChange("1")
   }
   return (
-    <div className="*:not-first:mt-2 w-[200px] max-w-[240px] relative !z-1000 !overflow-visible">
+    <div className="*:not-first:mt-2 min-w-[154px] relative !z-1000000 !overflow-visible">
       {/* <Label htmlFor={id}>filter by duration</Label> */}
-      <Select defaultValue="1" value={value}  onValueChange={handleValueChange} onOpenChange={(open)=>console.log('select opened : ',open)}>
+      <Select defaultValue="1" value={value}   onValueChange={handleValueChange} onOpenChange={(open)=>console.log('select opened : ',open)}>
         <SelectTrigger id={id}>
           <SelectValue placeholder="By Duration" />
         </SelectTrigger>

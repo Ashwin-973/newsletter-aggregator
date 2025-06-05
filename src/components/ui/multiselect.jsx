@@ -325,7 +325,7 @@ const MultipleSelector = ({
         handleKeyDown(e)
         commandProps?.onKeyDown?.(e)
       }}
-      className={cn("h-auto overflow-visible bg-transparent w-[260px] max-w-[300px] max-h-[240px]", commandProps?.className)}
+      className={cn("h-auto overflow-visible bg-transparent w-[240px] max-w-[240px]  max-h-[240px]", commandProps?.className)}
       // When onSearch is provided, we don&lsquo;t want to filter the options. You can still override it.
       shouldFilter={
         commandProps?.shouldFilter !== undefined

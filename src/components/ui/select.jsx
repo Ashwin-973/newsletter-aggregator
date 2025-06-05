@@ -49,7 +49,7 @@ function SelectTrigger({
 function SelectContent({
   className,
   children,
-  position = "popper",
+  position = "item-aligned",
   ...props
 }) {
   return (
