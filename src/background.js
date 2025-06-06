@@ -3,6 +3,7 @@
 import { getAuthToken, removeAuthToken, getUserInfo } from '../src/auth/auth.js';
 import { fetchNewslettersFromGmail,fetchEmailContent,parseEmailContent, markMessageAsRead  } from '../src/api/gmail.js';
 import { mergeNewsletterData } from '../src/lib/storage.js'; 
+import { C } from 'dist/assets/card-0UbCRlyc.js';
 // import { getAuthToken, removeAuthToken, getUserInfo } from './auth.js';
 // import { fetchNewslettersFromGmail,fetchEmailContent,parseEmailContent ,markMessageAsRead  } from './gmail.js';
 // import { mergeNewsletterData } from './storage.js'; 
@@ -136,14 +137,21 @@ async function handleLogout() {
 async function getAuthStatus() {
   try {
     const { isAuthenticated, userInfo } = await chrome.storage.local.get(['isAuthenticated', 'userInfo']);
+    const {authToken,tokenExpiry} = await chrome.storage.local.get(['authToken', 'tokenExpiry']);
+    const now = Date.now();
+    const EXPIRE_BUFFER_MS = 5 * 60 * 1000;
     if (isAuthenticated) {
       try {
-        const token = await getAuthToken(false);
-        if (token) {
+        if (authToken && tokenExpiry && (tokenExpiry > (now + EXPIRE_BUFFER_MS))) {
           return { isAuthenticated: true, userInfo };
         }
-        console.log("Silent token retrieval failed. Logging out.")
-        await handleLogout(); 
+        await handleLogout()
+        const token = await getAuthToken(true);
+        if (token) {
+          console.log("Login again interactively")
+          return { isAuthenticated: true, userInfo };
+        }
+        console.log("getAuthStatus failed. Logging out.")
         return { isAuthenticated: false };
       } catch (error) {
         console.error("Error during silent token retrieval or validation, logging out:", error);
@@ -165,6 +173,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   if (status.isAuthenticated) {
     const { authToken } = await chrome.storage.local.get('authToken');
     if(authToken){
+        console.log("onInstalled fetch")
         await fetchNewsletters(authToken);
         chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 15 });  //alarm fires every 15 minutes
     }
@@ -179,6 +188,7 @@ chrome.runtime.onStartup.addListener(async () => {
   if (status.isAuthenticated) {
     const { authToken } = await chrome.storage.local.get('authToken');
      if(authToken){
+        console.log("onStartup fetch")
         await fetchNewsletters(authToken);
         chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 1 });
     }
@@ -192,6 +202,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     console.log('Alarm triggered for fetching Gmail data.');
     const { isAuthenticated, authToken } = await chrome.storage.local.get(['isAuthenticated', 'authToken']);
     if (isAuthenticated && authToken) {
+      console.log("Alarm fetch")
       await fetchNewsletters(authToken);
     } else {
       console.log('Not authenticated or no token, skipping fetch and clearing alarm.');

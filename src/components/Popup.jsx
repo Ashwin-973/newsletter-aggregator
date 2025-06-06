@@ -148,16 +148,6 @@ const handleReset=()=>
   };
 
 
-
-
-/*useEffect(()=>
-{
-  if(!resetState){
-    console.log("I ran")
-    handleReset()
-  }
-},[resetState])*/
-
 const extractProviderInfo = (from) => {
   const matches = from.match(/(.*?)\s*<(.+?)>/);
   if (matches) {
@@ -312,7 +302,7 @@ const applyFilters = (newsletters, { duration, providers, readStatus }) => {
   });
 };
 
-  const handleAuthClick = () => {
+const handleAuthClick = () => {
     setIsLoading(true);
     chrome.runtime.sendMessage({ action: 'login' }, (response) => {
       setIsLoading(false);
@@ -326,9 +316,9 @@ const applyFilters = (newsletters, { duration, providers, readStatus }) => {
         setUserInfo(null);
       }
     });
-  };
+};
 
-  const handleSignOutClick = () => {
+const handleSignOutClick = () => {
     setIsLoading(true);
     chrome.runtime.sendMessage({ action: 'logout' }, (response) => {
       setIsLoading(false);
@@ -341,7 +331,7 @@ const applyFilters = (newsletters, { duration, providers, readStatus }) => {
         // Potentially keep user as authenticated if logout failed, or force UI update
       }
     });
-  };
+};
 
 if (isLoading && !isAuthenticated) {
     return <div className="p-4 text-center">Loading...</div>;
@@ -534,7 +524,7 @@ const renderNewsletterItem = (newsletter) => {
                         duration: durationFilter,
                         providers: selectedProviders,
                         readStatus: readFilter
-                          }).map((renderNewsletterItem))
+                          }).map((renderNewsletterItem))uth
                           }
                     </ul>
                   </ScrollArea>

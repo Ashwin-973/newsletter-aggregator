@@ -57,6 +57,121 @@
 
 const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
+/*RATE LIMITER CONFIG */
+
+const RATE_LIMIT_CONFIG = {
+  maxConcurrentRequests: 5,
+  requestsPerSecond: 10,
+  maxRetries: 5,
+  baseDelayMs: 1000,
+  maxDelayMs: 60000,
+  jitterMs: 500
+};
+
+// Rate limiter class
+class RateLimiter {
+  constructor(config = RATE_LIMIT_CONFIG) {
+    this.config = config;
+    this.activeRequests = 0;
+    this.requestQueue = [];
+    this.lastRequestTime = 0;
+    this.requestTimes = [];
+}
+
+async executeRequest(requestFn, context = '') {
+  return new Promise((resolve, reject) => {
+    this.requestQueue.push({
+      execute: requestFn,
+      resolve,
+      reject,
+      context,
+      retries: 0
+      });
+    this.processQueue();
+    });
+}
+
+async processQueue() {
+  if (this.activeRequests >= this.config.maxConcurrentRequests || this.requestQueue.length === 0) {
+    return;
+  }
+
+//check rate limit per second
+const now = Date.now();
+  this.requestTimes = this.requestTimes.filter(time => now - time < 1000);
+    
+if (this.requestTimes.length >= this.config.requestsPerSecond) {
+    setTimeout(() => this.processQueue(), 100);
+    return;
+  }
+
+const request = this.requestQueue.shift();
+  this.activeRequests++;
+  this.requestTimes.push(now);
+
+  try {
+    const result = await this.executeWithRetry(request);
+    request.resolve(result);
+  } catch (error) {
+    request.reject(error);
+  } finally {
+    this.activeRequests--;
+    // process next request after a small delay
+      setTimeout(() => this.processQueue(), 50);
+    }
+  }
+
+async executeWithRetry(request) {
+    const { execute, context, retries } = request;
+    
+    try {
+      return await execute();
+    } catch (error) {
+      if (this.shouldRetry(error, retries)) {
+        const delay = this.calculateBackoffDelay(retries);
+        console.log(`Retrying ${context} after ${delay}ms (attempt ${retries + 1})`);
+        
+        await this.sleep(delay);
+        request.retries++;
+        return this.executeWithRetry(request);
+      }
+      throw error;
+    }
+  }
+
+shouldRetry(error, retries) {
+    if (retries >= this.config.maxRetries) return false;
+
+// Retry on rate limit, server errors, or network issues
+const retryableStatuses = [429, 500, 502, 503, 504];
+const status = error.status || (error.message && error.message.includes('429') ? 429 : 0);
+    
+return retryableStatuses.includes(status) || 
+    error.message?.includes('network') ||
+    error.message?.includes('timeout');
+  }
+
+calculateBackoffDelay(retries) {
+    const exponentialDelay = Math.min(
+      this.config.baseDelayMs * Math.pow(2, retries),
+      this.config.maxDelayMs
+    );
+    
+    // Add jitter to prevent thundering herd
+    const jitter = Math.random() * this.config.jitterMs;
+    return exponentialDelay + jitter;
+  }
+
+sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+
+//global rate limiter class
+const rateLimiter = new RateLimiter();
+
+
 export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
   if (!token) {
     console.error('No auth token provided for fetching newsletters.');
@@ -65,11 +180,26 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
 
   // A more refined query to catch newsletters might include specific sender patterns
   // or more nuanced keyword combinations if the basic ones are too broad or too narrow.
-  const defaultQuery = 'category:primary OR category:promotions OR category:updates OR category:forums (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list") OR "unsubscribe" OR "view in browser" OR "email preferences"';
-  const query = queryOptions.query || defaultQuery;
-  const maxResults = queryOptions.maxResults || 100;
+  const {
+    query = 'category:primary OR category:promotions OR category:updates OR category:forums (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list") OR "unsubscribe" OR "view in browser" OR "email preferences"',
+    maxResults = 100,
+    pageToken = null,
+    includeSpamTrash = false
+  } = queryOptions;
 
-  const listUrl = `${GMAIL_API_BASE_URL}/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`;
+
+//construct query params
+const params = new URLSearchParams({
+    q: query,
+    maxResults: maxResults.toString(),
+    includeSpamTrash: includeSpamTrash.toString()
+  });
+
+if (pageToken) {
+    params.set('pageToken', pageToken);
+  }
+
+const listUrl = `${GMAIL_API_BASE_URL}/messages?${params.toString()}`;
 
   try {
     console.log(`Fetching newsletters with query: "${query}"`);
