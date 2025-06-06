@@ -174,12 +174,9 @@ const rateLimiter = new RateLimiter();
 
 export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
   if (!token) {
-    console.error('No auth token provided for fetching newsletters.');
     throw new Error('Authentication token is required.');
   }
 
-  // A more refined query to catch newsletters might include specific sender patterns
-  // or more nuanced keyword combinations if the basic ones are too broad or too narrow.
   const {
     query = 'category:primary OR category:promotions OR category:updates OR category:forums (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list") OR "unsubscribe" OR "view in browser" OR "email preferences"',
     maxResults = 100,
@@ -187,22 +184,21 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
     includeSpamTrash = false
   } = queryOptions;
 
-
-//construct query params
-const params = new URLSearchParams({
+  const params = new URLSearchParams({
     q: query,
     maxResults: maxResults.toString(),
     includeSpamTrash: includeSpamTrash.toString()
   });
 
-if (pageToken) {
+  if (pageToken) {
     params.set('pageToken', pageToken);
   }
 
-const listUrl = `${GMAIL_API_BASE_URL}/messages?${params.toString()}`;
+  const listUrl = `${GMAIL_API_BASE_URL}/messages?${params.toString()}`;
 
-  try {
+  return rateLimiter.executeRequest(async () => {
     console.log(`Fetching newsletters with query: "${query}"`);
+    
     const listResponse = await fetch(listUrl, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -213,15 +209,19 @@ const listUrl = `${GMAIL_API_BASE_URL}/messages?${params.toString()}`;
     if (!listResponse.ok) {
       const errorBody = await listResponse.text();
       console.error('Failed to list messages:', listResponse.status, errorBody);
+      
       if (listResponse.status === 401) {
-         throw new Error('Token has been expired or revoked (401)');
+        throw new Error('Token has been expired or revoked (401)');
       }
-      throw new Error(`Failed to list messages: ${listResponse.status} ${errorBody}`);
+      
+      const error = new Error(`Failed to list messages: ${listResponse.status} ${errorBody}`);
+      error.status = listResponse.status;
+      throw error;
     }
 
     const listResult = await listResponse.json();
-
-    console.log("Newsletters : ",listResult)
+    console.log("Newsletters : ", listResult);
+    
     const messages = listResult.messages || [];
 
     if (messages.length === 0) {
@@ -229,66 +229,59 @@ const listUrl = `${GMAIL_API_BASE_URL}/messages?${params.toString()}`;
       return [];
     }
 
+    // Fetch details for each message with rate limiting
     const newsletterDetailsPromises = messages.map(async (message) => {
-      // Request specific metadata headers
       const messageUrl = `${GMAIL_API_BASE_URL}/messages/${message.id}?format=full&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`;
-      try {
+      
+      return rateLimiter.executeRequest(async () => {
         const msgResponse = await fetch(messageUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
+
         if (!msgResponse.ok) {
           const errorBody = await msgResponse.text();
           console.error(`Error fetching details for message ID ${message.id}:`, msgResponse.status, errorBody);
+          
           if (msgResponse.status === 401) {
             throw new Error('Token has been expired or revoked during message fetch (401)');
           }
-          return null; 
+          return null;
         }
+        
         return await msgResponse.json();
-      } catch (err) {
-        console.error(`Network or critical error fetching message ID ${message.id}:`, err);
-        if (err.message?.includes('(401)')) throw err; 
-        return null; 
-      }
+      }, `fetchMessageDetails-${message.id}`);
     });
 
     const resolvedDetails = await Promise.all(newsletterDetailsPromises);
-    // Filter out any null results from failed individual fetches (that weren't critical auth errors)
     const validNewsletterDetails = resolvedDetails.filter(detail => detail !== null);
     
     console.log('Fetched newsletter details:', validNewsletterDetails);
 
-    // const newsletters = validNewsletterDetails.map(resp => resp.result);
-    // Store in chrome.storage.local
     const newsletterData = validNewsletterDetails.map(letter => {
       const dateHeader = letter.payload.headers.find(meta => meta.name === 'Date')?.value;
       const fromHeader = letter.payload.headers.find(meta => meta.name === 'From')?.value;
       const subjectHeader = letter.payload.headers.find(meta => meta.name === 'Subject')?.value;
+      
       return {
         id: letter.id,
         date: dateHeader,
         from: fromHeader,
         subject: subjectHeader,
         read: !letter.labelIds.includes('UNREAD'),
-        bookmark: false, 
-        readLater: false, 
-        incomplete: false, 
-        scrollPosition: null 
+        bookmark: false,
+        readLater: false,
+        incomplete: false,
+        scrollPosition: null
       };
     });
 
     return newsletterData;
 
-  } catch (error) { // Catches errors from listMessages or critical errors from messageDetails
-    console.error('Error in fetchNewslettersFromGmail main try block:', error);
-    throw error; // Re-throw the error for the background script to handle
-  }
+  }, `fetchNewslettersFromGmail-${pageToken || 'first'}`);
 }
-
-
 // fetch email content on list-click
 export async function fetchEmailContent(token, messageId) {
   if (!token || !messageId) {
@@ -297,7 +290,7 @@ export async function fetchEmailContent(token, messageId) {
 
   const messageUrl = `${GMAIL_API_BASE_URL}/messages/${messageId}?format=full`;
 
-  try {
+  return rateLimiter.executeRequest(async () => {
     const response = await fetch(messageUrl, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -309,14 +302,52 @@ export async function fetchEmailContent(token, messageId) {
       if (response.status === 401) {
         throw new Error('Token has been expired or revoked (401)');
       }
-      throw new Error(`Failed to fetch email content: ${response.status}`);
+      
+      const error = new Error(`Failed to fetch email content: ${response.status}`);
+      error.status = response.status;
+      throw error;
     }
 
     return await response.json();
-  } catch (error) {
-    console.error('Error fetching email content:', error);
-    throw error;
+  }, `fetchEmailContent-${messageId}`);
+}
+
+// Batch fetch email contents with controlled concurrency
+export async function batchFetchEmailContents(token, messageIds, onProgress = null) {
+  const results = [];
+  const errors = [];
+  let processed = 0;
+
+  console.log(`Starting batch fetch of ${messageIds.length} emails`);
+
+  for (const messageId of messageIds) {
+    try {
+      const emailData = await fetchEmailContent(token, messageId);
+      const parsedContent = parseEmailContent(emailData);
+      
+      results.push({
+        id: messageId,
+        success: true,
+        data: emailData,
+        parsed: parsedContent
+      });
+    } catch (error) {
+      console.error(`Failed to fetch email ${messageId}:`, error);
+      errors.push({
+        id: messageId,
+        error: error.message
+      });
+    }
+
+    processed++;
+    if (onProgress) {
+      onProgress(processed, messageIds.length);
+    }
   }
+
+  console.log(`Batch fetch completed: ${results.length} successful, ${errors.length} failed`);
+  
+  return { results, errors };
 }
 
 //decode base64URL
@@ -393,12 +424,128 @@ function parseParts(part) {
 }
 
 // handle emails as READ via gmail API
+export async function  markMessagesAsRead(token, messageIds) {
+  if (!token || !messageIds.length) {
+    return { success: true, processed: 0 };
+  }
+
+  // Gmail API supports batch modify, but we'll implement it safely
+  const batchSize = 10;
+  const batches = [];
+  
+  for (let i = 0; i < messageIds.length; i += batchSize) {
+    batches.push(messageIds.slice(i, i + batchSize));
+  }
+
+  let totalProcessed = 0;
+  const errors = [];
+
+  for (const batch of batches) {
+    try {
+      await rateLimiter.executeRequest(async () => {
+        // For now, we'll mark them individually but with rate limiting
+        // In future, implement proper batch API
+        for (const messageId of batch) {
+          await markMessageAsRead(token, messageId);
+        }
+      }, `markBatchAsRead-${batch.length}`);
+      
+      totalProcessed += batch.length;
+    } catch (error) {
+      console.error('Failed to mark batch as read:', error);
+      errors.push(...batch.map(id => ({ id, error: error.message })));
+    }
+  }
+
+  return {
+    success: errors.length === 0,
+    processed: totalProcessed,
+    errors
+  };
+}
+
+//get gmail history for full sync
+export async function getGmailHistory(token, startHistoryId, historyTypes = ['messageAdded']) {
+  if (!token || !startHistoryId) {
+    throw new Error('Token and startHistoryId are required');
+  }
+
+  const params = new URLSearchParams({
+    startHistoryId: startHistoryId.toString(),
+    historyTypes: historyTypes.join(',')
+  });
+
+  const historyUrl = `${GMAIL_API_BASE_URL}/history?${params.toString()}`;
+
+  return rateLimiter.executeRequest(async () => {
+    const response = await fetch(historyUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        // History ID is too old, need full sync
+        return { historyId: null, history: [], needsFullSync: true };
+      }
+      
+      if (response.status === 401) {
+        throw new Error('Token has been expired or revoked (401)');
+      }
+      
+      const error = new Error(`Failed to fetch history: ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    const result = await response.json();
+    
+    return {
+      historyId: result.historyId,
+      history: result.history || [],
+      needsFullSync: false
+    };
+  }, `getGmailHistory-${startHistoryId}`);
+}
+
+// get current gmail profile info including historyId
+export async function getGmailProfile(token) {
+  if (!token) {
+    throw new Error('Token is required');
+  }
+
+  const profileUrl = `${GMAIL_API_BASE_URL}/profile`;
+
+  return rateLimiter.executeRequest(async () => {
+    const response = await fetch(profileUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Token has been expired or revoked (401)');
+      }
+      
+      const error = new Error(`Failed to fetch profile: ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.json();
+  }, 'getGmailProfile');
+}
+
 export async function markMessageAsRead(token, messageId) {
   if (!token || !messageId) {
     throw new Error('Token and messageId are required');
   }
 
-  /*const modifyUrl = `${GMAIL_API_BASE_URL}/messages/${messageId}/modify`;
+   /*const modifyUrl = `${GMAIL_API_BASE_URL}/messages/${messageId}/modify`;
 
   try {
     const response = await fetch(modifyUrl, {
@@ -424,11 +571,9 @@ export async function markMessageAsRead(token, messageId) {
     console.error('Error marking message as read:', error);
     throw error;
   }*/
- console.log("fake Read status modified ")
+
+  console.log("Marking message as read:", messageId);
 }
-
-
-
 
 
 /* 

@@ -10,7 +10,7 @@ function ScrollArea({
 }) {
   return (
     <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn("relative", className)} {...props}>
-      <ScrollAreaPrimitive.Viewport data-slot="scroll-area-viewport" className="size-full rounded-[inherit]">
+      <ScrollAreaPrimitive.Viewport data-slot="scroll-area-viewport" className="size-full rounded-[inherit] max-h-full">
         {children}
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />

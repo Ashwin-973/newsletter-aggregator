@@ -69,7 +69,9 @@ export function mergeNewsletterData(existingNewsletters, newNewsletters) {
         bookmark: existing.bookmark || false,
         readLater: existing.readLater || false,
         incomplete: existing.incomplete || false,
-        scrollPosition: existing.scrollPosition || null
+        scrollPosition: existing.scrollPosition || null,
+        read: existing.userModifiedRead ? existing.read : newNl.read,  //preserve read status : what does it exactly do?
+        userModifiedRead: existing.userModifiedRead || false
       };
     }
     return {
@@ -77,7 +79,8 @@ export function mergeNewsletterData(existingNewsletters, newNewsletters) {
       bookmark: false,
       readLater: false,
       incomplete: false,
-      scrollPosition: null
+      scrollPosition: null,
+      userModifiedRead: false
     };
   });
 }
@@ -133,4 +136,126 @@ export async function getBlockedProviders() {
 
 export async function setBlockedProviders(providers) {
   await chrome.storage.local.set({ blockedProviders: providers });
+}
+
+export async function getProcessedMessageIds() {
+  try {
+    const { processedMessageIds } = await chrome.storage.local.get('processedMessageIds');
+    return new Set(processedMessageIds || []);
+  } catch (error) {
+    console.error('Error getting processed message IDs:', error);
+    return new Set();
+  }
+}
+
+export async function addProcessedMessageIds(messageIds) {
+  try {
+    const existingIds = await getProcessedMessageIds();
+    const newIds = Array.isArray(messageIds) ? messageIds : [messageIds];
+    
+    newIds.forEach(id => existingIds.add(id));
+    
+    await chrome.storage.local.set({ 
+      processedMessageIds: Array.from(existingIds) 
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error adding processed message IDs:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getLastKnownHistoryId() {
+  try {
+    const { lastKnownHistoryId } = await chrome.storage.local.get('lastKnownHistoryId');
+    return lastKnownHistoryId || null;
+  } catch (error) {
+    console.error('Error getting last known history ID:', error);
+    return null;
+  }
+}
+
+export async function setLastKnownHistoryId(historyId) {
+  try {
+    await chrome.storage.local.set({ lastKnownHistoryId: historyId });
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting last known history ID:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getFailedMessageIds() {
+  try {
+    const { failedMessageIds } = await chrome.storage.local.get('failedMessageIds');
+    return failedMessageIds || [];
+  } catch (error) {
+    console.error('Error getting failed message IDs:', error);
+    return [];
+  }
+}
+
+export async function addFailedMessageIds(messageIds) {
+  try {
+    const existingFailed = await getFailedMessageIds();
+    const newFailed = Array.isArray(messageIds) ? messageIds : [messageIds];
+    
+    const updatedFailed = [...existingFailed, ...newFailed.map(id => ({
+      id: typeof id === 'string' ? id : id.id,
+      error: typeof id === 'string' ? 'Unknown error' : id.error,
+      timestamp: Date.now(),
+      retryCount: 0
+    }))];
+    
+    await chrome.storage.local.set({ failedMessageIds: updatedFailed });
+    return { success: true };
+  } catch (error) {
+    console.error('Error adding failed message IDs:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function clearFailedMessageIds() {
+  try {
+    await chrome.storage.local.set({ failedMessageIds: [] });
+    return { success: true };
+  } catch (error) {
+    console.error('Error clearing failed message IDs:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getSyncStatus() {
+  try {
+    const { syncStatus } = await chrome.storage.local.get('syncStatus');
+    return syncStatus || {
+      isInitialSyncComplete: false,
+      lastFullSyncTime: null,
+      lastDeltaSyncTime: null,
+      totalNewslettersProcessed: 0,
+      lastSyncErrors: []
+    };
+  } catch (error) {
+    console.error('Error getting sync status:', error);
+    return {
+      isInitialSyncComplete: false,
+      lastFullSyncTime: null,
+      lastDeltaSyncTime: null,
+      totalNewslettersProcessed: 0,
+      lastSyncErrors: []
+    };
+  }
+}
+
+export async function updateSyncStatus(updates) {
+  try {
+    const currentStatus = await getSyncStatus();
+    const updatedStatus = { ...currentStatus, ...updates };
+    await chrome.storage.local.set({ syncStatus: updatedStatus });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating sync status:', error);
+    return { success: false, error: error.message };
+  }
 }

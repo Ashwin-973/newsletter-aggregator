@@ -48,12 +48,58 @@ export async function getAuthToken(interactive) {
     return null;
   }
 }
+
+export const validateToken = async (token) => {
+  try {
+    const response = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `access_token=${token}`
+    });
+
+    if (!response.ok) {
+      return { valid: false, error: 'Token validation failed' };
+    }
+
+    const tokenInfo = await response.json();
+    
+    // Check if token has required scopes
+    const requiredScopes = [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.modify',
+      'https://www.googleapis.com/auth/userinfo.email'
+    ];
+    
+    const tokenScopes = tokenInfo.scope ? tokenInfo.scope.split(' ') : [];
+    const hasRequiredScopes = requiredScopes.every(scope => 
+      tokenScopes.includes(scope)
+    );
+
+    return {
+      valid: true,
+      hasRequiredScopes,
+      expiresIn: parseInt(tokenInfo.expires_in),
+      tokenInfo
+    };
+  } catch (error) {
+    console.error('Token validation error:', error);
+    return { valid: false, error: error.message };
+  }
+};
 export async function removeAuthToken(){
   await chrome.storage.local.set({
-      isAuthenticated: false,
-      authToken: null,
-      userInfo: null,
-      newsletters: []
+      processedMessageIds: [],
+      lastKnownHistoryId: null,
+      failedMessageIds: [],
+      syncStatus: {
+        isInitialSyncComplete: false,
+        lastFullSyncTime: null,
+        lastDeltaSyncTime: null,
+        totalNewslettersProcessed: 0,
+        lastSyncErrors: []
+      }
     });
   return 
 }
@@ -82,12 +128,33 @@ export const getUserInfo = async (token,forceInteractive=true) => {
     // we must go interactive.
     if (!token || forceInteractive) { // If no token, or forced interactive
       console.log('Initiating interactive web auth flow...');
-      token = await getAuthToken(forceInteractive); // This should be your launchWebAuthFlow logic
-      if (!token) {
+      const tokenResult = await getAuthToken(forceInteractive); // This should be your launchWebAuthFlow logic
+      if (!tokenResult) {
         throw new Error('Failed to get token interactively. User may have cancelled.');
         // Handle failed authentication (e.g., show error to user, redirect to login page)
       }
+      token=tokenResult.accessToken
+      // Store the new token
+      const newTokenExpiry = Date.now() + (parseInt(tokenResult.expiresIn) * 1000);
+      await chrome.storage.local.set({
+        authToken: token,
+        tokenExpiry: newTokenExpiry
+      });
     }
+  }
+
+   // Validate token before using
+  const validation = await validateToken(token);
+  if (!validation.valid) {
+    console.error('Token validation failed:', validation.error);
+    await removeAuthToken();
+    throw new Error('Token validation failed');
+  }
+
+  if (!validation.hasRequiredScopes) {
+    console.error('Token missing required scopes');
+    await removeAuthToken();
+    throw new Error('Token missing required Gmail permissions');
   }
 
 

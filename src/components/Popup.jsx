@@ -9,7 +9,7 @@ import { ContextMenu } from "./ContextMenu";
 import { SettingsPanel } from "./SettingsPanel";
 import { SelectProviders } from "./SelectProviders";
 import { SignIn } from "@/auth/SignIn"; // Assuming SignIn component is for UI only now
-import { BoxIcon, HouseIcon, PanelsTopLeftIcon, LogOutIcon } from "lucide-react";
+import { BoxIcon, HouseIcon, PanelsTopLeftIcon, LogOutIcon,RefreshCw, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { IconRestore } from "@tabler/icons-react";
 import {
   Card,
@@ -45,7 +45,14 @@ export function Popup() {
   position: { x: 0, y: 0 },
   newsletter: null
 }); 
-
+const [syncStatus, setSyncStatus] = useState({
+  isInitialSyncComplete: false,
+  lastFullSyncTime: null,
+  lastDeltaSyncTime: null,
+  totalNewslettersProcessed: 0,
+  lastSyncErrors: []
+});
+const [isSyncing, setIsSyncing] = useState(false);
 const { 
     onboardingCompleted, 
     updateProviders, 
@@ -82,7 +89,7 @@ useEffect(() => {
       setIsLoading(false);
     });
 
-    // Listener for storage changes (e.g., new newsletters fetched by background)
+// Listener for storage changes (e.g., new newsletters fetched by background)
 const storageChangedListener = (changes, area) => {
       if (area === 'local') {
         if (changes.isAuthenticated) {
@@ -115,7 +122,63 @@ const storageChangedListener = (changes, area) => {
     };
   }, []);  //removed all deps to avoid infinite re-renders (newsletters and updatednewsletters)
 
+// monitor sync status
+useEffect(() => {
+  if (isAuthenticated) {
+    // Get initial sync status
+    chrome.runtime.sendMessage({ action: 'getSyncStatus' }, (response) => {
+      if (response) {
+        setSyncStatus(response);
+      }
+    });
 
+    // Listen for sync status updates
+    const syncStatusListener = (changes, area) => {
+      if (area === 'local' && changes.syncStatus) {
+        setSyncStatus(changes.syncStatus.newValue);
+      }
+    };
+
+    chrome.storage.onChanged.addListener(syncStatusListener);
+    return () => chrome.storage.onChanged.removeListener(syncStatusListener);
+  }
+}, [isAuthenticated]);
+
+// Add these handler functions
+const handleManualSync = async () => {
+  setIsSyncing(true);
+  try {
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'forceSyncNewsletters' }, resolve);
+    });
+    
+    if (response.success) {
+      console.log('Manual sync completed:', response.message);
+    } else {
+      console.error('Manual sync failed:', response.error);
+    }
+  } catch (error) {
+    console.error('Manual sync error:', error);
+  } finally {
+    setIsSyncing(false);
+  }
+};
+
+const handleRetryFailed = async () => {
+  try {
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'retryFailedMessages' }, resolve);
+    });
+    
+    if (response.success) {
+      console.log('Retry completed:', response.message);
+    } else {
+      console.error('Retry failed:', response.error);
+    }
+  } catch (error) {
+    console.error('Retry error:', error);
+  }
+};
 
 
 const handleReset=()=>
@@ -408,6 +471,68 @@ const handleReadLater = async (newsletter) => {
   }
 };
 
+const SyncStatusBar = () => {
+  const hasErrors = syncStatus.lastSyncErrors && syncStatus.lastSyncErrors.length > 0;
+  const lastSyncTime = syncStatus.lastDeltaSyncTime || syncStatus.lastFullSyncTime;
+  
+  return (
+    <div className="mb-3 p-2 bg-muted rounded-lg">
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2">
+          {isSyncing ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : hasErrors ? (
+            <AlertCircle className="h-4 w-4 text-orange-500" />
+          ) : (
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          )}
+          
+          <span>
+            {isSyncing ? 'Syncing...' : 
+             hasErrors ? 'Sync completed with errors' : 
+             'Sync up to date'}
+          </span>
+          
+          {syncStatus.totalNewslettersProcessed > 0 && (
+            <Badge variant="secondary">
+              {syncStatus.totalNewslettersProcessed} newsletters
+            </Badge>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {lastSyncTime && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {new Date(lastSyncTime).toLocaleTimeString()}
+            </span>
+          )}
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            title="Manual sync"
+          >
+            <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          </Button>
+          
+          {hasErrors && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRetryFailed}
+              title="Retry failed messages"
+            >
+              <AlertCircle className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 const renderNewsletterItem = (newsletter) => {
   const subject = newsletter?.subject || 'No Subject';
   const from = newsletter?.from || 'Unknown Sender';
@@ -443,6 +568,8 @@ const renderNewsletterItem = (newsletter) => {
     </li>
   );
 };
+
+
   return (
     <div id="popup" className="relative p-4 w-[780px] h-[600px] max-w-[780px] max-h-[600px]">
       {!isAuthenticated ? (
@@ -486,7 +613,7 @@ const renderNewsletterItem = (newsletter) => {
               </Button>
             </ToolTip>
           </div>
-
+          <SyncStatusBar /> {/* Add the sync status bar here */}
           <TabsContent  value="tab-1">
             <Card className="mb-4 ">  {/*take whatever space you need */}
               <CardHeader>
@@ -511,25 +638,62 @@ const renderNewsletterItem = (newsletter) => {
 
             <Card className="">  {/*claim any positve extra space left by card1 */}
               <CardHeader>  {/*again take whatever space you need */}
-                <CardTitle>Your Newsletters</CardTitle>
-                {userInfo && <CardDescription>Logged in as {userInfo.email}</CardDescription>}
-              </CardHeader>
-              <CardContent className=""> {/*you get the leftover space */}
-                {isLoading && newsletters.length === 0 && <p>Loading newsletters...</p>}
-                {!isLoading && newsletters.length === 0 && <p>No newsletters found or yet to be fetched.</p>}
-                {newsletters.length > 0 && (
-                  <ScrollArea className="max-h-[234px]">  {/*hacky fix */}
-                    <ul className="space-y-2">
-                      {applyFilters(newsletters, {
-                        duration: durationFilter,
-                        providers: selectedProviders,
-                        readStatus: readFilter
-                          }).map((renderNewsletterItem))uth
-                          }
-                    </ul>
-                  </ScrollArea>
-                )}
-              </CardContent>
+                <CardTitle className="flex items-center justify-between">
+                <span>Your Newsletters</span>
+                {/* Add sync info */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {syncStatus.isInitialSyncComplete ? (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      Synced
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-4 w-4 text-orange-500" />
+                      Initial sync pending
+                    </span>
+                  )}
+                </div>
+              </CardTitle>
+              {userInfo && <CardDescription>Logged in as {userInfo.email}</CardDescription>}
+            </CardHeader>
+            <CardContent className="">
+              {isLoading && newsletters.length === 0 && (
+                <div className="flex items-center gap-2 p-4">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <p>Loading newsletters...</p>
+                </div>
+              )}
+              {!isLoading && newsletters.length === 0 && !syncStatus.isInitialSyncComplete && (
+                <div className="text-center p-4">
+                  <p className="mb-2">No newsletters found yet.</p>
+                  <Button onClick={handleManualSync} disabled={isSyncing}>
+                    {isSyncing ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                        Syncing...
+                      </>
+                    ) : (
+                      'Start Sync'
+                    )}
+                  </Button>
+                </div>
+              )}
+              {!isLoading && newsletters.length === 0 && syncStatus.isInitialSyncComplete && (
+                <p>No newsletters match your current filters.</p>
+              )}
+              {newsletters.length > 0 && (
+                <ScrollArea className="h-[234px]">
+                  <ul className="space-y-2">
+                    {applyFilters(newsletters, {
+                      duration: durationFilter,
+                      providers: selectedProviders,
+                      readStatus: readFilter
+                    }).map(renderNewsletterItem)}
+                  </ul>
+                </ScrollArea>
+              )}
+            </CardContent>
             </Card>
           </TabsContent>
               {/*Bookmarking space */}
