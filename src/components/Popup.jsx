@@ -29,16 +29,16 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { ToolTip } from "./ToolTip";
-
+//centralize newsletter state in onBoardinhg Context
 export function Popup() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [newsletters, setNewsletters] = useState([]);
-  const [allProviders,setAllProviders] = useState([]);
+  // const [newsletters, setNewsletters] = useState([]);
+  // const [allProviders,setAllProviders] = useState([]);
   const [userInfo, setUserInfo] = useState(null);
   const [readFilter, setReadFilter] = useState("all");
   const [durationFilter,setDurationFilter]=useState("1")
-  const [selectedProviders,setSelectedProviders]=useState([])
+  const [selectedSenders,setSelectedSenders]=useState([])
   const [resetState,setResetState]=useState(false)
   const [contextMenu, setContextMenu] = useState({  
   isOpen: false,
@@ -55,11 +55,17 @@ const [syncStatus, setSyncStatus] = useState({
 const [isSyncing, setIsSyncing] = useState(false);
 const { 
     onboardingCompleted, 
+    newsletters,
+    setNewsletters,
+    allProviders,
+    selectedProviders,
+    blockedProviders,
     updateProviders, 
     isLoading: onboardingLoading 
   } = useOnboarding();
 const { userPreferences } = useSettings();
-console.log(`Current Filters : duration - ${durationFilter} , providers - ${selectedProviders} ,read filter - ${readFilter}`)
+console.log("Newsletters after filtering from blockers : ",newsletters)
+console.log(`Current Filters : duration - ${durationFilter} , providers - ${selectedSenders} ,read filter - ${readFilter}`)
   // info : Check auth status on component mount
 useEffect(() => {
     setIsLoading(true);
@@ -68,10 +74,12 @@ useEffect(() => {
         setIsAuthenticated(true);
         setUserInfo(response.userInfo);
         // Fetch initial newsletters from storage
-        chrome.storage.local.get('newsletters', ({ newsletters: storedNewsletters }) => {
+        /*chrome.storage.local.get('newsletters', ({ newsletters: storedNewsletters }) => {
           try {
           const newsletters = storedNewsletters || [];
-          setNewsletters(newsletters);
+          setNewsletters(newsletters.filter(nl=>!(new Set(blockedProviders
+        .map(blocked=>blocked.value)))
+        .has((extractProviderInfo(nl.from)).value)));
           const providers = getUniqueProviders(newsletters);
           setAllProviders(providers);
           updateProviders(providers.filter(p => p.value !== 'all'));
@@ -80,7 +88,7 @@ useEffect(() => {
           console.error('Error processing newsletters:', error);
           setAllProviders([]); // Fallback to empty array
         }
-        });
+        });*/
       } else {
         setIsAuthenticated(false);
         setUserInfo(null);
@@ -94,18 +102,17 @@ const storageChangedListener = (changes, area) => {
         if (changes.isAuthenticated) {
           setIsAuthenticated(changes.isAuthenticated.newValue);
         }
-        if(changes.newsletters?.newValue){
-          setNewsletters(changes.newsletters.newValue);
+        /*if(changes.newsletters?.newValue){
+          console.log("Change in Newsletters in Popup : ",newsletters)
+          setNewsletters(changes.newsletters.newValue.filter(nl=>!(new Set(blockedProviders
+          .map(blocked=>blocked.value)))
+          .has((extractProviderInfo(nl.from)).value)) || []);
           setAllProviders(getUniqueProviders(changes.newsletters.newValue));
           updateProviders(getUniqueProviders(changes.newsletters.newValue).filter(p => p.value !== 'all'));
           console.log("Update provider called from storage listener")
-        }
+        }*/
         if (changes.userInfo) {
           setUserInfo(changes.userInfo.newValue);
-        }
-        if (changes.newsletters) {
-          console.log("Change in Newsletters in Popup : ",newsletters)
-          setNewsletters(changes.newsletters.newValue || []);
         }
         // If logged out via storage change, update state
         if (changes.isAuthenticated && changes.isAuthenticated.newValue === false) {
@@ -183,29 +190,29 @@ const handleRetryFailed = async () => {
 const handleReset=()=>
 {
     setDurationFilter("1");
-    setSelectedProviders([])
+    setSelectedSenders([])
     setReadFilter("all"); // Corresponding setter also commented out
     setResetState(false)
 }
-  const handleDurationStatus=(value)=>
+const handleDurationStatus=(value)=>
   {
     console.log("Selected duration filter : ",value)
     setDurationFilter(value);
     setResetState(true)
     
-  }
+}
 
-  const handleProviderStatus=(value)=>
-  {
-    console.log("Selected providers : ",value)
-    setSelectedProviders(value)
-    setResetState(true)
-  }
+const handleProviderStatus=(value)=>
+{
+  console.log("Selected providers : ",value)
+  setSelectedSenders(value)
+  setResetState(true)
+}
 
   
-  const handleReadStatus = (value) => {
+const handleReadStatus = (value) => {
     setReadFilter(value); // Corresponding setter also commented out
-    console.log('Read changed:', value);
+    setResetState(true)
     // Future: Trigger refetch or client-side filter of newsletters based on 'value'
   };
 
@@ -581,7 +588,7 @@ const renderNewsletterItem = (newsletter) => {
 };
 
 
-  return (
+return (
     <div id="popup" className="relative p-4 w-[780px] h-[600px] max-w-[780px] max-h-[600px]">
       {!isAuthenticated ? (
         <SignIn isLoading={isLoading} handleAuthClick={handleAuthClick} />
@@ -636,7 +643,7 @@ const renderNewsletterItem = (newsletter) => {
               <CardContent className="space-y-2">
                 <div className="max-w-full flex justify-around items-center gap-4 ">
                   <DurationDropdown onChange={handleDurationStatus} value={durationFilter}/>
-                  <NewslettersDropdown onChange={handleProviderStatus}  providers={allProviders} value={selectedProviders || []} />   {/*search is happening through value and not label*/}
+                  <NewslettersDropdown onChange={handleProviderStatus}  providers={selectedProviders} value={selectedSenders|| []} />   {/*search is happening through value and not label*/}
                   <SegmentedControl defaultValue="All" onChange={handleReadStatus} value={readFilter}/>
                   <ToolTip info="Reset Filters">
                     <Button variant="ghost"  onClick={handleReset} disabled={!resetState}>
@@ -647,7 +654,7 @@ const renderNewsletterItem = (newsletter) => {
               </CardContent>
             </Card>
 
-            <Card className="">  {/*claim any positve extra space left by card1 */}
+           <Card className="">  {/*claim any positve extra space left by card1 */}
               <CardHeader>  {/*again take whatever space you need */}
                 <CardTitle className="flex items-center justify-between">
                 <span>Your Newsletters</span>
@@ -698,7 +705,7 @@ const renderNewsletterItem = (newsletter) => {
                   <ul className="space-y-2">
                     {applyFilters(newsletters, {
                       duration: durationFilter,
-                      providers: selectedProviders,
+                      providers: selectedSenders,
                       readStatus: readFilter
                     }).map(renderNewsletterItem)}
                   </ul>
@@ -771,3 +778,5 @@ const renderNewsletterItem = (newsletter) => {
     </div>
   );
 }
+
+

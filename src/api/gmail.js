@@ -180,7 +180,7 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
 
   const {
     query = 'category:primary OR category:promotions OR category:updates OR category:forums (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list") OR "unsubscribe" OR "view in browser" OR "email preferences"',
-    maxResults = 300,
+    maxResults = 30,
     pageToken = null,
     includeSpamTrash = false
   } = queryOptions;
@@ -198,7 +198,6 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
   const listUrl = `${GMAIL_API_BASE_URL}/messages?${params.toString()}`;
 
   return rateLimiter.executeRequest(async () => {
-    console.log(`Fetching newsletters with query: "${query}"`);
     
     const listResponse = await fetch(listUrl, {
       headers: {
@@ -221,7 +220,6 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
     }
 
     const listResult = await listResponse.json();
-    console.log("Newsletters : ", listResult);
     
     const messages = listResult.messages || [];
 
@@ -286,6 +284,59 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
 
 
   }, `fetchNewslettersFromGmail-${pageToken || 'first'}`);
+}
+
+export async function fetchNewsletterById(token,messageIds){
+  const newsletterDetailsPromises = messageIds.map(async (id) => {
+      const messageUrl = `${GMAIL_API_BASE_URL}/messages/${id}?format=full&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`;
+      
+      return rateLimiter.executeRequest(async () => {
+        const msgResponse = await fetch(messageUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!msgResponse.ok) {
+          const errorBody = await msgResponse.text();
+          console.error(`Error fetching details for message ID ${id}:`, msgResponse.status, errorBody);
+          
+          if (msgResponse.status === 401) {
+            throw new Error('Token has been expired or revoked during message fetch (401)');
+          }
+          return null;
+        }
+        
+        return await msgResponse.json();
+      }, `fetchMessageDetails-${id}`);
+    });
+
+    const resolvedDetails = await Promise.all(newsletterDetailsPromises);
+    const validNewsletterDetails = resolvedDetails.filter(detail => detail !== null);
+    
+    console.log('Fetched newsletter details:', validNewsletterDetails);
+
+    const newsletterData = validNewsletterDetails.map(letter => {
+      const dateHeader = letter.payload.headers.find(meta => meta.name === 'Date')?.value;
+      const fromHeader = letter.payload.headers.find(meta => meta.name === 'From')?.value;
+      const subjectHeader = letter.payload.headers.find(meta => meta.name === 'Subject')?.value;
+      
+      return {
+        id: letter.id,
+        date: dateHeader,
+        from: fromHeader,
+        subject: subjectHeader,
+        read: !letter.labelIds.includes('UNREAD'),
+        bookmark: false,
+        readLater: false,
+        incomplete: false,
+        scrollPosition: null
+      };
+    });
+
+    return newsletterData;
+
 }
 // fetch email content on list-click
 export async function fetchEmailContent(token, messageId) {

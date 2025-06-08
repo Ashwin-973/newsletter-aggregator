@@ -12,7 +12,7 @@ const allProviders=[//this mock data when passed directly works well
 {value: 'pragmaticengineer@substack.com', label: 'The Pragmatic Engineer'},
 {value: 'yo@dev.to', label: 'DEV Community Digest'}]
 
-const selectedProviders=[
+const blockedProvidersOld=[
   {value: 'noreply@skool.com', label: 'The AI Report Free Community (Skool)'},
 {value: 'newsletters@techcrunch.com', label: 'TechCrunch'},
 {value: 'hi@deeperlearning.producthunt.com', label: 'The Frontier by Product Hunt'},
@@ -20,7 +20,7 @@ const selectedProviders=[
 {value: 'bytebytego@substack.com', label: 'ByteByteGo'},
 ]
 
-const newsletters=[
+const newslettersOld=[
     {
         "date": "Thu, 15 May 2025 23:58:43 +0000",
         "from": "LeetCode <no-reply@leetcode.com>",
@@ -114,6 +114,7 @@ const newsletters=[
     }
 ]
 
+
 const extractProviderInfo = (from) => {
   const matches = from.match(/(.*?)\s*<(.+?)>/);
   if (matches) {
@@ -126,26 +127,24 @@ const extractProviderInfo = (from) => {
   return { value: from, label: from };
 };
 
-const getUniqueProviders = (newsletters) => {
-   if (!Array.isArray(newsletters) || newsletters.length === 0) {
-    // return [{ value: "all", label: "All" }];
-    return [];
-  }
-  const providers = new Map();
-  // providers.set("all", { value: "all", label: "All" });
+const blockedProviders = [
+  { label: "INDIAN BANK", value: "noreply@indianbank.co.in" },
+  { label: "DeepSeek", value: "support@sc.mail.deepseek.com" },
+  { label: "Quora Suggested Spaces", value: "infofamily-space@quora.com" }
+];
 
-  newsletters.forEach(nl => {
-    if (nl?.from) {
-        const providerInfo=extractProviderInfo(nl.from)
-        if (!providers.has(providerInfo.value)) {
-          providers.set(providerInfo.value,providerInfo );
-        }
-      }
-    }
-  );
+const newsletters = [
+  { id: 1, subject: "Bank Statement", from: "noreply@indianbank.co.in" },
+  { id: 2, subject: "AI Update", from: "news@my-ai-blog.com" },
+  { id: 3, subject: "New Features from DeepSeek", from: "support@sc.mail.deepseek.com" },
+  { id: 4, subject: "Your Weekly Digest", from: "digest@example.com" },
+  { id: 5, subject: "Trending on Quora", from: "infofamily-space@quora.com" },
+  { id: 6, subject: "Personal Email", from: "john.doe@personal.com" }
+];
 
-  return Array.from(providers.values())
-};
+const res=newsletters.filter(nl=>!(new Set(blockedProviders
+        .map(blocked=>blocked.value)))
+        .has((extractProviderInfo(nl.from)).value))
 
 
-console.log(getUniqueProviders(newsletters))
+console.log(res)

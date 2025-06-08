@@ -41,7 +41,7 @@ const handleCustomDuration = (e) => {
     onChange("1")
   }
   return (
-    <div className="*:not-first:mt-2 min-w-[154px] relative !z-1000000 !overflow-visible">
+    <div className="*:not-first:mt-2 min-w-[154px] relative !overflow-visible">
       {/* <Label htmlFor={id}>filter by duration</Label> */}
       <Select defaultValue="1" value={value}   onValueChange={handleValueChange} onOpenChange={(open)=>console.log('select opened : ',open)}>
         <SelectTrigger id={id}>

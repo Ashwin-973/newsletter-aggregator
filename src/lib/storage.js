@@ -1,7 +1,6 @@
 export async function getNewsletters() {
   try{
       const { newsletters } = await chrome.storage.local.get('newsletters');
-      console.log(newsletters)
       return newsletters || [];
   }
   catch(error){

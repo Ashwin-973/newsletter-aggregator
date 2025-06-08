@@ -14,7 +14,6 @@ export async function getAuthToken(interactive) {
   authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
   authUrl.searchParams.set('scope', SCOPES);
   authUrl.searchParams.set('prompt', 'consent'); // Ensures user sees account picker
-  console.log(authUrl.toString())
   try {
     const responseUrl = await chrome.identity.launchWebAuthFlow({
       url: authUrl.toString(),
@@ -35,7 +34,6 @@ export async function getAuthToken(interactive) {
     const expiresIn = params.get('expires_in');
 
     if (accessToken && expiresIn) {
-      console.log('Access token obtained:', accessToken);
       return {accessToken,expiresIn};
     } else {
       console.error('Access token not found in response.');

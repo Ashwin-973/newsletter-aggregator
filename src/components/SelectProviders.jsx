@@ -54,22 +54,22 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
     setCurrentSelected(prev => [...prev, providerToAdd]);
   };
 
-  const handleRemoveProvider = (providerToRemove) => {
+const handleRemoveProvider = (providerToRemove) => {
     console.log("Current selected :", currentSelected)
     setCurrentSelected(prev => 
       prev.filter(provider => provider.value !== providerToRemove.value)
     );
   };
 
-  const handleSelectAll = () => {
+const handleSelectAll = () => {
     setCurrentSelected(allProviders);
   };
 
-  const handleDeselectAll = () => {
+const handleDeselectAll = () => {
     setCurrentSelected([]);
   };
 
-  const handleSave = async () => {
+const handleSave = async () => {
     try {
       if (isSettingsMode) {
         await updatePreferences(currentSelected);
@@ -82,15 +82,15 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
     }
   };
 
-  const handleClose = () => {
+const handleClose = () => {
     if (onClose) {
       onClose();
     }
-  };
+};
 
   return (
-     <div className={`min-w-[1000px] z-50 ${isSettingsMode?`fixed inset-0 min-w-[900px] bg-black/80 z-10000`:``} p-4  max-w[1200px] min-h-[900px] max-height-[1000px]`}> {/*evaluates values inside curly braces as js expression , as template strings is a js exp */}
-      <div className="bg-white p-6 rounded-lg shadow-lg w-4/5 min-w-4/5 min-h-6/7  max-w-7xl max-h-[90vh] relative flex flex-col">
+     <div className={`min-w-[732px] z-50 ${isSettingsMode?`fixed inset-0 w-[700px] bg-black/80 z-1000`:``} p-4  max-w[780px] max-height-[600px]`}> {/*evaluates values inside curly braces as js expression , as template strings is a js exp */}
+      <div className="bg-white p-6 rounded-lg shadow-lg max-h-full max-w-full relative flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -149,13 +149,13 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
         </div>
 
         {/* Provider Lists */}
-        <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-[300px] max-h-fit">
+        <div className="flex flex-col sm:flex-row gap-1 flex-1 max-h-fit">
           {/* Selected providers */}
           <div className="flex-1">
             <h3 className="font-medium mb-2 text-green-700">
               Selected Providers ({filteredSelected.length})
             </h3>
-            <div className="h-96 p-4 max-h-[270px] bg-green-50 border border-green-200 rounded-md flex flex-col gap-2 overflow-y-auto">
+            <div className="h-96 p-4 max-h-[285px] bg-green-50 border border-green-200 rounded-md flex flex-col gap-2 overflow-y-auto">
               {filteredSelected.length === 0 ? (
                 <div className="text-gray-500 italic p-4 text-center">
                   {searchTerm ? 'No matching selected providers' : 'No providers selected'}
@@ -191,7 +191,7 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
             <h3 className="font-medium mb-2 text-gray-700">
               Available Providers ({filteredAvailable.length})
             </h3>
-            <div className="h-96 p-4 max-h-[270px] bg-gray-50 border border-gray-200 rounded-md flex flex-col gap-2 overflow-y-auto">
+            <div className="h-96 p-4 max-h-[285px] bg-gray-50 border border-gray-200 rounded-md flex flex-col gap-2 overflow-y-auto">
               {filteredAvailable.length === 0 ? (
                 <div className="text-gray-500 italic p-4 text-center">
                   {searchTerm ? 'No matching available providers' : 'All providers selected'}
@@ -224,7 +224,7 @@ export const SelectProviders = ({ isSettingsMode = false, onClose = null }) => {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-between items-center mt-4 pt-4 border-t">
+        <div className="flex-1 flex justify-between items-center mt-4 pt-4 border-t">
           <div className="text-sm text-gray-600">
             {allProviders.length - currentSelected.length} providers will be blocked
           </div>

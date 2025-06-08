@@ -26,6 +26,7 @@
 import { getAuthToken, removeAuthToken, getUserInfo } from './auth.js';
 import { 
   fetchNewslettersFromGmail, 
+  fetchNewsletterById,
   fetchEmailContent, 
   parseEmailContent, 
   markMessageAsRead,
@@ -57,6 +58,8 @@ getNewsletters,
 
 const GMAIL_FETCH_ALARM = 'gmailFetchAlarm';
 const RETRY_FAILED_ALARM = 'retryFailedAlarm';
+const GMAIL_FETCH_ALARM_PERIOD=3
+const RETRY_FAILED_ALARM_PERIOD=6
 
 // Sync orchestrator class
 class NewsletterSyncManager {
@@ -89,17 +92,11 @@ class NewsletterSyncManager {
       // Step 1: Collect all message IDs with pagination - runs stateless
       do {
         const {newsletterData,nextPageToken,resultSizeEstimate} = await fetchNewslettersFromGmail(token, {
-          maxResults: 300, // Larger batches for listing
+          maxResults: 30, // Larger batches for listing
           pageToken
         });
-        console.log("Got Newsletters in background : ",newsletterData)
-        const newIds = newsletterData
-          .map(msg => 
-          {
-            return msg.id
-          }
-            )
-          .filter(id => !processedIds.has(id));
+        const newIds = newsletterData.map(nl =>nl.id).filter(id => !processedIds.has(id));
+        const filteredNewsletterData=newsletterData.filter(nl=> !processedIds.has(nl.id))
 
         allNewMessageIds.push(...newIds);
         pageToken = nextPageToken;
@@ -107,11 +104,12 @@ class NewsletterSyncManager {
         totalEstimate = resultSizeEstimate;
 
 
-        console.log(`Collected ${newIds.length} new message IDs (${allNewMessageIds.length} total)`);
+        console.log(`Collected ${newIds.length} new message IDs (${allNewMessageIds.length} total : saved to local processedID's)`);
+        await addProcessedMessageIds(allNewMessageIds)
         //save newsletterData to local storage
         const existingNewsletters=await getNewsletters()
-        await setNewsletters([...existingNewsletters,...newsletterData])
-        console.log(`Stored another ${existingNewsletters.length} newsletters to local storage`)
+        await setNewsletters([...existingNewsletters,...filteredNewsletterData])
+        console.log(`Stored another ${filteredNewsletterData.length} newsletters to local storage`)
 
         // Prevent infinite loops
         if (allNewMessageIds.length > 10000) {
@@ -123,19 +121,19 @@ class NewsletterSyncManager {
 
       console.log(`Full sync: Found ${allNewMessageIds.length} new messages to process`);
 
-      /*if (allNewMessageIds.length === 0) {
+      if (allNewMessageIds.length === 0) {
         await updateSyncStatus({
           isInitialSyncComplete: true,
           lastFullSyncTime: Date.now(),
           syncEndTime: Date.now()
         });
         return { success: true, processed: 0, message: 'No new newsletters found' };
-      }*/
+      }
 
-      // Step 2: Fetch email contents in controlled batches
+      // info : Fetch email contents in controlled batches
       // const results = await this.processBatchedEmails(token, allNewMessageIds, 'full-sync');
 
-      // Step 3: Update history ID for future delta syncs
+      // info : Update history ID for future delta syncs
       try {
         const profile = await getGmailProfile(token);
         if (profile.historyId) {
@@ -146,23 +144,22 @@ class NewsletterSyncManager {
         console.warn('Failed to update history ID:', error);
       }
 
-      /*await updateSyncStatus({
+      await updateSyncStatus({
         isInitialSyncComplete: true,
         lastFullSyncTime: Date.now(),
-        totalNewslettersProcessed: results.successful,
+        totalNewslettersProcessed: allNewMessageIds.length,
         syncEndTime: Date.now(),
-        lastSyncErrors: results.errors
-      });*/
+        lastSyncErrors:null
+      });
 
-      // console.log(`Full sync completed: ${results.successful} successful, ${results.failed} failed`);
+      console.log(`Full sync completed: ${allNewMessageIds.length} successful, None failed`);
       
-      /*return {
+      return {
         success: true,
-        processed: results.successful,
-        failed: results.failed,
-        message: `Processed ${results.successful} newsletters`
-      };*/
-      return {}
+        processed: allNewMessageIds.length,
+        failed: null,  //mock for now
+        message: `Processed ${allNewMessageIds.length} newsletters`
+      };
 
     } catch (error) {
       console.error('Full sync failed:', error);
@@ -182,7 +179,7 @@ class NewsletterSyncManager {
     }
   }
 
-/*async performDeltaSync(token) {
+async performDeltaSync(token) {
     if (this.isDeltaSyncRunning) {
       console.log('Delta sync already running, skipping...');
       return { success: false, message: 'Delta sync already in progress' };
@@ -240,27 +237,35 @@ class NewsletterSyncManager {
         return { success: true, processed: 0, message: 'All messages already processed' };
       }
 
-      // Process new messages
-      const results = await this.processBatchedEmails(token, unprocessedIds, 'delta-sync');
+      const newNewsletters=fetchNewsletterById(token,unprocessedIds)
+      console.log(`Collected ${unprocessedIds.length} new message IDs: saved to local processedID's)`);
+      await addProcessedMessageIds(unprocessedIds)
+      //save newsletterData to local storage
+      const existingNewsletters=await getNewsletters()
+      await setNewsletters([...existingNewsletters,...newNewsletters])
+      console.log(`Stored another ${newNewsletters.length} newsletters to local storage`)
 
-      // Update history ID
+      // Process new messages
+      // const results = await this.processBatchedEmails(token, unprocessedIds, 'delta-sync');
+
+      // info : update history ID
       if (historyResponse.historyId) {
         await setLastKnownHistoryId(historyResponse.historyId);
       }
 
       await updateSyncStatus({
         lastDeltaSyncTime: Date.now(),
-        totalNewslettersProcessed: (await getSyncStatus()).totalNewslettersProcessed + results.successful,
-        lastSyncErrors: results.errors
+        totalNewslettersProcessed: (await getSyncStatus()).totalNewslettersProcessed + unprocessedIds.length,
+        lastSyncErrors: null //mock for now
       });
 
-      console.log(`Delta sync completed: ${results.successful} successful, ${results.failed} failed`);
+      console.log(`Delta sync completed: ${unprocessedIds.length} successful, zero failed`);
 
       return {
         success: true,
-        processed: results.successful,
-        failed: results.failed,
-        message: `Processed ${results.successful} new newsletters`
+        processed: unprocessedIds.length,
+        failed: null,
+        message: `Processed ${unprocessedIds.length} new newsletters`
       };
 
     } catch (error) {
@@ -279,7 +284,7 @@ class NewsletterSyncManager {
     } finally {
       this.isDeltaSyncRunning = false;
     }
-  }*/
+  }
 //processes and returns contents of each newsletter in diff formats
   /*async processBatchedEmails(token, messageIds, syncType) {
     const { blockedProviders = [] } = await chrome.storage.local.get('blockedProviders');
@@ -499,8 +504,6 @@ async retryFailedMessages(token) {
     }
   }
 
-
-
 async handleAuthError() {
     console.log('Handling auth error - clearing tokens and stopping sync');
     await removeAuthToken();
@@ -524,8 +527,8 @@ async function fetchNewsletters(token) {
       
       if (result.success) {
         // Schedule regular delta syncs
-        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 15 });
-        chrome.alarms.create(RETRY_FAILED_ALARM, { periodInMinutes: 60 });
+        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: GMAIL_FETCH_ALARM_PERIOD });
+        chrome.alarms.create(RETRY_FAILED_ALARM, { periodInMinutes: RETRY_FAILED_ALARM_PERIOD });
       }
       
       return result;
@@ -561,14 +564,12 @@ async function handleLogin() {
       await chrome.storage.local.set({ isAuthenticated: true, authToken: accessToken,tokenExpiry:tokenExpiry });
       const userInfo = await getUserInfo(accessToken);
       await chrome.storage.local.set({ userInfo });
-      console.log('User signed in:', userInfo);
-      console.log("Starting initial newsletter fetch with accessToken")
        // Start the sync process
       const syncResult = await fetchNewsletters(accessToken);
       if (syncResult.success) {
         // Schedule periodic syncs
-        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 15 });
-        chrome.alarms.create(RETRY_FAILED_ALARM, { periodInMinutes: 60 });
+        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: GMAIL_FETCH_ALARM_PERIOD });
+        chrome.alarms.create(RETRY_FAILED_ALARM, { periodInMinutes: RETRY_FAILED_ALARM_PERIOD });
       }
       
       return { success: true, userInfo, syncResult };
@@ -586,10 +587,8 @@ async function handleLogout() {
   let success = false;
   try {
     let { authToken } = await chrome.storage.local.get('authToken');
-    console.log("auth token before : ",authToken)
     await removeAuthToken()
     authToken = await chrome.storage.local.get('authToken');
-    console.log("auth token after : ",authToken)
     success = true;
   } catch (error) {
     console.error('Error removing auth token during logout:', error);
@@ -683,8 +682,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       console.log("onInstalled: Starting sync");
       try {
         await fetchNewsletters(authToken);
-        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 15 });
-        chrome.alarms.create(RETRY_FAILED_ALARM, { periodInMinutes: 60 });
+        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: GMAIL_FETCH_ALARM_PERIOD });
+        chrome.alarms.create(RETRY_FAILED_ALARM, { periodInMinutes: RETRY_FAILED_ALARM_PERIOD });
       } catch (error) {
         console.error('Failed to sync on install:', error);
       }
@@ -704,8 +703,8 @@ chrome.runtime.onStartup.addListener(async () => {
       console.log("onStartup: Starting sync");
       try {
         await fetchNewsletters(authToken);
-        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: 15 });
-        chrome.alarms.create(RETRY_FAILED_ALARM, { periodInMinutes: 60 });
+        chrome.alarms.create(GMAIL_FETCH_ALARM, { periodInMinutes: GMAIL_FETCH_ALARM_PERIOD });
+        chrome.alarms.create(RETRY_FAILED_ALARM, { periodInMinutes: RETRY_FAILED_ALARM_PERIOD });
       } catch (error) {
         console.error('Failed to sync on startup:', error);
       }
@@ -723,13 +722,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const { isAuthenticated, authToken } = await chrome.storage.local.get(['isAuthenticated', 'authToken']);
     
     if (isAuthenticated && authToken) {
-      console.log("Alarm: Starting fake delta sync");
+      console.log("Alarm: Starting  delta sync");
       try {
-        console.log("Alarm fetch")
-        await fetchNewsletters(authToken);
-        // await syncManager.performDeltaSync(authToken);
+        await syncManager.performDeltaSync(authToken);
       } catch (error) {
-        console.error('Alarm fake sync failed:', error);
+        console.error('Alarm sync failed:', error);
         if (error.message?.includes('401')) {
           await syncManager.handleAuthError();
         }
