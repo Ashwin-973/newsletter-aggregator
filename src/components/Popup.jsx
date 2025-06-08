@@ -36,7 +36,7 @@ export function Popup() {
   const [newsletters, setNewsletters] = useState([]);
   const [allProviders,setAllProviders] = useState([]);
   const [userInfo, setUserInfo] = useState(null);
-  const [readFilter, setReadFilter] = useState("all"); // Commented out as unused for now
+  const [readFilter, setReadFilter] = useState("all");
   const [durationFilter,setDurationFilter]=useState("1")
   const [selectedProviders,setSelectedProviders]=useState([])
   const [resetState,setResetState]=useState(false)
@@ -58,10 +58,9 @@ const {
     updateProviders, 
     isLoading: onboardingLoading 
   } = useOnboarding();
-
 const { userPreferences } = useSettings();
-
-  // Check auth status on component mount
+console.log(`Current Filters : duration - ${durationFilter} , providers - ${selectedProviders} ,read filter - ${readFilter}`)
+  // info : Check auth status on component mount
 useEffect(() => {
     setIsLoading(true);
     chrome.runtime.sendMessage({ action: 'getAuthStatus' }, (response) => {
@@ -105,7 +104,7 @@ const storageChangedListener = (changes, area) => {
           setUserInfo(changes.userInfo.newValue);
         }
         if (changes.newsletters) {
-          console.log("Newsletters in Popup : ",newsletters)
+          console.log("Change in Newsletters in Popup : ",newsletters)
           setNewsletters(changes.newsletters.newValue || []);
         }
         // If logged out via storage change, update state
@@ -122,7 +121,7 @@ const storageChangedListener = (changes, area) => {
     };
   }, []);  //removed all deps to avoid infinite re-renders (newsletters and updatednewsletters)
 
-// monitor sync status
+//info : monitor sync status
 useEffect(() => {
   if (isAuthenticated) {
     // Get initial sync status
@@ -225,10 +224,11 @@ const extractProviderInfo = (from) => {
 
 const getUniqueProviders = (newsletters) => {
    if (!Array.isArray(newsletters) || newsletters.length === 0) {
-    return [{ value: "all", label: "All" }];
+    // return [{ value: "all", label: "All" }];
+    return [];
   }
   const providers = new Map();
-  providers.set("all", { value: "all", label: "All" });
+  // providers.set("all", { value: "all", label: "All" });
 
   newsletters.forEach(nl => {
     if (nl?.from) {
@@ -537,6 +537,7 @@ const renderNewsletterItem = (newsletter) => {
   const subject = newsletter?.subject || 'No Subject';
   const from = newsletter?.from || 'Unknown Sender';
   const date = newsletter?.date;
+  const readProgress = newsletter?.readProgress || 0;
   
   return (
     <li 
@@ -560,10 +561,20 @@ const renderNewsletterItem = (newsletter) => {
           </div>
           <div className="text-xs text-muted-foreground truncate" title={from}>{from}</div>
           {date && <div className="text-xs text-muted-foreground">{new Date(date).toLocaleDateString()}</div>}
+          {newsletter.incomplete && (
+            <div className="mt-1">
+              <div className="w-full bg-gray-200 rounded-full h-1">
+                <div 
+                  className="h-1 bg-orange-400 rounded-full"
+                  style={{ width: `${readProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div className="mt-1">
-        <span className="text-xs text-blue-600 hover:text-blue-800">Click to read →</span>
+        <span className="text-xs text-blue-600 hover:text-blue-800"> {newsletter.incomplete ? `Continue reading (${Math.round(readProgress)}%) →` : 'Click to read →'}</span>
       </div>
     </li>
   );

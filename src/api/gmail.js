@@ -96,7 +96,7 @@ async processQueue() {
     return;
   }
 
-//check rate limit per second
+//info : number of requests happening in one-second window
 const now = Date.now();
   this.requestTimes = this.requestTimes.filter(time => now - time < 1000);
     
@@ -151,6 +151,7 @@ return retryableStatuses.includes(status) ||
     error.message?.includes('timeout');
   }
 
+//info : calculates exponential delays bw retries
 calculateBackoffDelay(retries) {
     const exponentialDelay = Math.min(
       this.config.baseDelayMs * Math.pow(2, retries),
@@ -161,7 +162,7 @@ calculateBackoffDelay(retries) {
     const jitter = Math.random() * this.config.jitterMs;
     return exponentialDelay + jitter;
   }
-
+// info : execue fn after exponential delay
 sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -179,7 +180,7 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
 
   const {
     query = 'category:primary OR category:promotions OR category:updates OR category:forums (label:^smartlabel_newsletter OR subject:newsletter OR subject:digest OR "view this email in your browser" OR "unsubscribe from this list") OR "unsubscribe" OR "view in browser" OR "email preferences"',
-    maxResults = 100,
+    maxResults = 300,
     pageToken = null,
     includeSpamTrash = false
   } = queryOptions;
@@ -278,7 +279,11 @@ export async function fetchNewslettersFromGmail(token, queryOptions = {}) {
       };
     });
 
-    return newsletterData;
+    return {newsletterData ,
+        nextPageToken:listResult.nextPageToken || null,
+        resultSizeEstimate:listResult.resultSizeEstimate
+      }
+
 
   }, `fetchNewslettersFromGmail-${pageToken || 'first'}`);
 }
@@ -310,6 +315,59 @@ export async function fetchEmailContent(token, messageId) {
 
     return await response.json();
   }, `fetchEmailContent-${messageId}`);
+}
+
+//parse email content
+export function parseEmailContent(message) {
+  const result = {
+    html: '',
+    text: '',
+    attachments: [],
+    headers: {}
+  };
+
+  // Extract headers
+if (message.payload?.headers) {
+    message.payload.headers.forEach(header => {
+      result.headers[header.name.toLowerCase()] = header.value;
+    });
+  }
+
+  // Parse the message parts
+function parseParts(part) {
+  if (!part) return;
+
+    const mimeType = part.mimeType;
+    const body = part.body;
+
+    if (mimeType === 'text/html' && body?.data) {
+      result.html = decodeBase64Url(body.data);
+    } else if (mimeType === 'text/plain' && body?.data) {
+      result.text = decodeBase64Url(body.data);
+    } else if (mimeType?.startsWith('multipart/')) {
+      // Handle multipart content
+      if (part.parts) {
+        part.parts.forEach(parseParts);
+      }
+    } else if (part.filename && body?.attachmentId) {
+      // Handle attachments
+      result.attachments.push({
+        filename: part.filename,
+        mimeType: mimeType,
+        attachmentId: body.attachmentId,
+        size: body.size
+      });
+    }
+
+    // Recursively parse nested parts
+    if (part.parts) {
+      part.parts.forEach(parseParts);
+    }
+  }
+
+  parseParts(message.payload);
+
+  return result;
 }
 
 // Batch fetch email contents with controlled concurrency
@@ -370,58 +428,7 @@ export function decodeBase64Url(str) {
   }
 }
 
-//parse email content
-export function parseEmailContent(message) {
-  const result = {
-    html: '',
-    text: '',
-    attachments: [],
-    headers: {}
-  };
 
-  // Extract headers
-if (message.payload?.headers) {
-    message.payload.headers.forEach(header => {
-      result.headers[header.name.toLowerCase()] = header.value;
-    });
-  }
-
-  // Parse the message parts
-function parseParts(part) {
-  if (!part) return;
-
-    const mimeType = part.mimeType;
-    const body = part.body;
-
-    if (mimeType === 'text/html' && body?.data) {
-      result.html = decodeBase64Url(body.data);
-    } else if (mimeType === 'text/plain' && body?.data) {
-      result.text = decodeBase64Url(body.data);
-    } else if (mimeType?.startsWith('multipart/')) {
-      // Handle multipart content
-      if (part.parts) {
-        part.parts.forEach(parseParts);
-      }
-    } else if (part.filename && body?.attachmentId) {
-      // Handle attachments
-      result.attachments.push({
-        filename: part.filename,
-        mimeType: mimeType,
-        attachmentId: body.attachmentId,
-        size: body.size
-      });
-    }
-
-    // Recursively parse nested parts
-    if (part.parts) {
-      part.parts.forEach(parseParts);
-    }
-  }
-
-  parseParts(message.payload);
-
-  return result;
-}
 
 // handle emails as READ via gmail API
 export async function  markMessagesAsRead(token, messageIds) {

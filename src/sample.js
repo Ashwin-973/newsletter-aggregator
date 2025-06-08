@@ -1,4 +1,24 @@
-import { isAfter, isSameDay, subDays, parseISO,parse,format } from 'date-fns';
+const allProviders=[//this mock data when passed directly works well 
+{value: 'no-reply@leetcode.com', label: 'LeetCode'},
+{value: 'submissions@webtoolsweekly.com', label: 'Web Tools Weekly'},
+{value: 'submissions@vscode.email', label: 'VSCode.Email'},
+{value: 'moneygrowthnewsletter@mail.beehiiv.com', label: 'Money Growth Newsletter'},
+{value: 'noreply@skool.com', label: 'The AI Report Free Community (Skool)'},
+{value: 'newsletters@techcrunch.com', label: 'TechCrunch'},
+{value: 'hi@deeperlearning.producthunt.com', label: 'The Frontier by Product Hunt'},
+{value: 'theaireport@mail.beehiiv.com', label: 'The AI Report'},
+{value: 'bytebytego@substack.com', label: 'ByteByteGo'},
+{value: 'noreply@sourcegraph.com', label: 'Sourcegraph'},
+{value: 'pragmaticengineer@substack.com', label: 'The Pragmatic Engineer'},
+{value: 'yo@dev.to', label: 'DEV Community Digest'}]
+
+const selectedProviders=[
+  {value: 'noreply@skool.com', label: 'The AI Report Free Community (Skool)'},
+{value: 'newsletters@techcrunch.com', label: 'TechCrunch'},
+{value: 'hi@deeperlearning.producthunt.com', label: 'The Frontier by Product Hunt'},
+{value: 'theaireport@mail.beehiiv.com', label: 'The AI Report'},
+{value: 'bytebytego@substack.com', label: 'ByteByteGo'},
+]
 
 const newsletters=[
     {
@@ -94,83 +114,6 @@ const newsletters=[
     }
 ]
 
-
-/*const applyFilters = (newsletters, { duration}) => {
-  return newsletters.filter(nl => {
-    const now = new Date();  //gives date in GMT
-    const inputFormat = 'E, dd MMM yyyy HH:mm:ss xx';
-      // Clean up the date string first
-    const cleanDate = nl.date
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-      .replace(/\([^)]*\)/g, '') // Remove anything in parentheses like (UTC)
-      .trim(); // Remove leading/trailing spaces
-    const dateObject = parse(cleanDate, inputFormat, now);
-    const isoStringGMT = dateObject.toISOString();
-
-
-    // Duration filter
-    const passesDateFilter = () => {
-      if (!duration) return true;
-      if (Array.isArray(duration)) {
-        const [customDate, customTime] = duration;
-        // if(!customTime) customTime='00:00:00'
-        const filterDate = new Date(`${customDate}T${customTime}`);  //convert from date/time to GMT
-        console.log(filterDate)
-        console.log(isAfter(isoStringGMT, filterDate))
-        return isAfter(isoStringGMT, filterDate); 
-      }
-      
-      switch(duration) {
-        case "1": 
-          return true;
-        case "2": // Today
-          return isSameDay(isoStringGMT, now);
-        case "3": // Last 7 days
-          console.log(isAfter(isoStringGMT,now))
-          return isAfter(isoStringGMT, subDays(now, 7));   //subtract 7 days from now
-        default:
-          return true;
-      }
-    };
-
-    return passesDateFilter()
-  }).sort((a, b) => new Date(b.date) - new Date(a.date)); // Always newest first
-};
-
-const custom=['2025-05-14', '21:51']
-const params={duration:custom}
-console.log(applyFilters(newsletters,params))
-
-
-
-// Your input date string
-// const inputDateString = 'Wed, 14 May 2025 16:29:51 +0000';
-
-// The format string that matches your input date format
-// E: Day of week (Thu)
-// dd: Day of month (15)
-// MMM: Month (May)
-// yyyy: Year (2025)
-// HH: Hour (23)
-// mm: Minute (58)
-// ss: Second (43)
-// xx: Timezone offset (+0000)
-/*const inputFormat = 'E, dd MMM yyyy HH:mm:ss xx';
-
-// Parse the input string into a Date object
-// The third argument (new Date()) is a reference date, often needed for parsing
-const dateObject = parse('Thu,  1 May 2025 15:05:03 +0000', inputFormat, new Date());
-
-// The resulting Date object represents the exact moment in time in UTC because
-// the input had a +0000 offset. The simplest way to get the desired ISO 8601
-// format is using the native toISOString() method.
-const isoStringGMT = dateObject.toISOString();
-
-console.log(isoStringGMT); // Output will be in the format 2025-05-15T23:58:43.000Z
-
-console.log(isAfter(isoStringGMT,new Date()))
-*/
-
 const extractProviderInfo = (from) => {
   const matches = from.match(/(.*?)\s*<(.+?)>/);
   if (matches) {
@@ -185,10 +128,11 @@ const extractProviderInfo = (from) => {
 
 const getUniqueProviders = (newsletters) => {
    if (!Array.isArray(newsletters) || newsletters.length === 0) {
-    return [{ value: "all", label: "All" }];
+    // return [{ value: "all", label: "All" }];
+    return [];
   }
   const providers = new Map();
-  providers.set("all", { value: "all", label: "All" });
+  // providers.set("all", { value: "all", label: "All" });
 
   newsletters.forEach(nl => {
     if (nl?.from) {
@@ -205,4 +149,3 @@ const getUniqueProviders = (newsletters) => {
 
 
 console.log(getUniqueProviders(newsletters))
-

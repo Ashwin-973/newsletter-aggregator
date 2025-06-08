@@ -1,27 +1,6 @@
 // Initialize GIS and GAPI
 //use functions in storage js to store newsletters
-import { getAuthToken, removeAuthToken, getUserInfo } from '../src/auth/auth.js';
-import { 
-  fetchNewslettersFromGmail, 
-  fetchEmailContent, 
-  parseEmailContent, 
-  markMessageAsRead,
-  batchFetchEmailContents,
-  getGmailHistory,
-  getGmailProfile
-} from '../src/api/gmail.js';
-import { 
-  mergeNewsletterData,
-  getProcessedMessageIds,
-  addProcessedMessageIds,
-  getLastKnownHistoryId,
-  setLastKnownHistoryId,
-  getFailedMessageIds,
-  addFailedMessageIds,
-  getSyncStatus,
-  updateSyncStatus
-} from '../src/lib/storage.js';
-// import { getAuthToken, removeAuthToken, getUserInfo } from './auth.js';
+// import { getAuthToken, removeAuthToken, getUserInfo } from '../src/auth/auth.js';
 // import { 
 //   fetchNewslettersFromGmail, 
 //   fetchEmailContent, 
@@ -30,9 +9,11 @@ import {
 //   batchFetchEmailContents,
 //   getGmailHistory,
 //   getGmailProfile
-// } from './gmail.js';
+// } from '../src/api/gmail.js';
 // import { 
-// mergeNewsletterData,
+//   mergeNewsletterData,
+//   getNewsletters,
+//   setNewsletters,
 //   getProcessedMessageIds,
 //   addProcessedMessageIds,
 //   getLastKnownHistoryId,
@@ -41,7 +22,30 @@ import {
 //   addFailedMessageIds,
 //   getSyncStatus,
 //   updateSyncStatus
-// } from './storage.js';
+// } from '../src/lib/storage.js';
+import { getAuthToken, removeAuthToken, getUserInfo } from './auth.js';
+import { 
+  fetchNewslettersFromGmail, 
+  fetchEmailContent, 
+  parseEmailContent, 
+  markMessageAsRead,
+  batchFetchEmailContents,
+  getGmailHistory,
+  getGmailProfile
+} from './gmail.js';
+import { 
+mergeNewsletterData,
+getNewsletters,
+ setNewsletters,
+  getProcessedMessageIds,
+  addProcessedMessageIds,
+  getLastKnownHistoryId,
+  setLastKnownHistoryId,
+  getFailedMessageIds,
+  addFailedMessageIds,
+  getSyncStatus,
+  updateSyncStatus
+} from './storage.js';
 
 
 // Load Google API client library
@@ -82,22 +86,32 @@ class NewsletterSyncManager {
       let pageToken = null;
       let totalEstimate = 0;
 
-      // Step 1: Collect all message IDs with pagination
+      // Step 1: Collect all message IDs with pagination - runs stateless
       do {
-        const response = await fetchNewslettersFromGmail(token, {
-          maxResults: 500, // Larger batches for listing
+        const {newsletterData,nextPageToken,resultSizeEstimate} = await fetchNewslettersFromGmail(token, {
+          maxResults: 300, // Larger batches for listing
           pageToken
         });
-
-        const newIds = response.messages
-          .map(msg => msg.id)
+        console.log("Got Newsletters in background : ",newsletterData)
+        const newIds = newsletterData
+          .map(msg => 
+          {
+            return msg.id
+          }
+            )
           .filter(id => !processedIds.has(id));
 
         allNewMessageIds.push(...newIds);
-        pageToken = response.nextPageToken;
-        totalEstimate = response.resultSizeEstimate;
+        pageToken = nextPageToken;
+        console.log(nextPageToken)
+        totalEstimate = resultSizeEstimate;
+
 
         console.log(`Collected ${newIds.length} new message IDs (${allNewMessageIds.length} total)`);
+        //save newsletterData to local storage
+        const existingNewsletters=await getNewsletters()
+        await setNewsletters([...existingNewsletters,...newsletterData])
+        console.log(`Stored another ${existingNewsletters.length} newsletters to local storage`)
 
         // Prevent infinite loops
         if (allNewMessageIds.length > 10000) {
@@ -109,17 +123,17 @@ class NewsletterSyncManager {
 
       console.log(`Full sync: Found ${allNewMessageIds.length} new messages to process`);
 
-      if (allNewMessageIds.length === 0) {
+      /*if (allNewMessageIds.length === 0) {
         await updateSyncStatus({
           isInitialSyncComplete: true,
           lastFullSyncTime: Date.now(),
           syncEndTime: Date.now()
         });
         return { success: true, processed: 0, message: 'No new newsletters found' };
-      }
+      }*/
 
       // Step 2: Fetch email contents in controlled batches
-      const results = await this.processBatchedEmails(token, allNewMessageIds, 'full-sync');
+      // const results = await this.processBatchedEmails(token, allNewMessageIds, 'full-sync');
 
       // Step 3: Update history ID for future delta syncs
       try {
@@ -132,22 +146,23 @@ class NewsletterSyncManager {
         console.warn('Failed to update history ID:', error);
       }
 
-      await updateSyncStatus({
+      /*await updateSyncStatus({
         isInitialSyncComplete: true,
         lastFullSyncTime: Date.now(),
         totalNewslettersProcessed: results.successful,
         syncEndTime: Date.now(),
         lastSyncErrors: results.errors
-      });
+      });*/
 
-      console.log(`Full sync completed: ${results.successful} successful, ${results.failed} failed`);
+      // console.log(`Full sync completed: ${results.successful} successful, ${results.failed} failed`);
       
-      return {
+      /*return {
         success: true,
         processed: results.successful,
         failed: results.failed,
         message: `Processed ${results.successful} newsletters`
-      };
+      };*/
+      return {}
 
     } catch (error) {
       console.error('Full sync failed:', error);
@@ -167,7 +182,7 @@ class NewsletterSyncManager {
     }
   }
 
-  async performDeltaSync(token) {
+/*async performDeltaSync(token) {
     if (this.isDeltaSyncRunning) {
       console.log('Delta sync already running, skipping...');
       return { success: false, message: 'Delta sync already in progress' };
@@ -264,9 +279,9 @@ class NewsletterSyncManager {
     } finally {
       this.isDeltaSyncRunning = false;
     }
-  }
-
-  async processBatchedEmails(token, messageIds, syncType) {
+  }*/
+//processes and returns contents of each newsletter in diff formats
+  /*async processBatchedEmails(token, messageIds, syncType) {
     const { blockedProviders = [] } = await chrome.storage.local.get('blockedProviders');
     const blockedEmails = new Set(blockedProviders.map(p => p.value));
     
@@ -352,9 +367,9 @@ class NewsletterSyncManager {
     }
 
     return { successful, failed, errors };
-  }
+  }*/
 
-parseEmailToNewsletter(emailData, parsedContent) {
+/*parseEmailToNewsletter(emailData, parsedContent) {
     const headers = emailData.payload?.headers || [];
     const dateHeader = headers.find(h => h.name === 'Date')?.value;
     const fromHeader = headers.find(h => h.name === 'From')?.value;
@@ -378,7 +393,7 @@ parseEmailToNewsletter(emailData, parsedContent) {
       userModifiedRead: false,
       fetchedAt: Date.now()
     };
-  }
+  }*/
 
 isSenderBlocked(fromHeader, blockedEmails) {
     if (!fromHeader || blockedEmails.size === 0) return false;
@@ -498,7 +513,7 @@ async handleAuthError() {
 // Global sync manager instance
 const syncManager = new NewsletterSyncManager();
 
-// Function to fetch newsletters (for backward compatibility)
+
 async function fetchNewsletters(token) {
   try {
     const syncStatus = await getSyncStatus();
@@ -588,6 +603,7 @@ async function handleLogout() {
 }
 
 async function getAuthStatus() {
+  console.log("I am the new auth status")
   try {
     const { isAuthenticated, userInfo } = await chrome.storage.local.get(['isAuthenticated', 'userInfo']);
     const { authToken, tokenExpiry } = await chrome.storage.local.get(['authToken', 'tokenExpiry']);
@@ -629,7 +645,7 @@ async function getAuthStatus() {
 
 
 
-// Event Listeners
+// info : Event Listeners
 chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('Extension installed or updated:', details);
   
@@ -700,33 +716,20 @@ chrome.runtime.onStartup.addListener(async () => {
   }
 });
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === GMAIL_FETCH_ALARM) {
-    console.log('Alarm triggered for fetching Gmail data.');
-    const { isAuthenticated, authToken } = await chrome.storage.local.get(['isAuthenticated', 'authToken']);
-    if (isAuthenticated && authToken) {
-      console.log("Alarm fetch")
-      await fetchNewsletters(authToken);
-    } else {
-      console.log('Not authenticated or no token, skipping fetch and clearing alarm.');
-      chrome.alarms.clear(GMAIL_FETCH_ALARM); 
-      await chrome.storage.local.set({ isAuthenticated: false, authToken: null, userInfo: null });
-    }
-  }
-});
-
 //listens for events within extension scope
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === GMAIL_FETCH_ALARM) {
-    console.log('Alarm triggered for fetching Gmail data.');
+    console.log('Alarm triggered for fetching Gmail data : ',new Date().toLocaleTimeString());
     const { isAuthenticated, authToken } = await chrome.storage.local.get(['isAuthenticated', 'authToken']);
     
     if (isAuthenticated && authToken) {
-      console.log("Alarm: Starting delta sync");
+      console.log("Alarm: Starting fake delta sync");
       try {
-        await syncManager.performDeltaSync(authToken);
+        console.log("Alarm fetch")
+        await fetchNewsletters(authToken);
+        // await syncManager.performDeltaSync(authToken);
       } catch (error) {
-        console.error('Alarm sync failed:', error);
+        console.error('Alarm fake sync failed:', error);
         if (error.message?.includes('401')) {
           await syncManager.handleAuthError();
         }
@@ -779,7 +782,7 @@ async function handleGetEmailContent(messageId) {
   }
 }
 
-
+// info : message based event listeners
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'login') {
     handleLogin().then(sendResponse);
@@ -804,19 +807,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     handleSaveScrollPosition(request.messageId, request.scrollPosition).then(sendResponse);
     return true;
   } else if (request.action === 'forceSyncNewsletters') {
-    // New action for manual sync trigger
     handleForceSyncNewsletters().then(sendResponse);
     return true;
   } else if (request.action === 'getSyncStatus') {
-    // New action to get sync status
     getSyncStatus().then(sendResponse);
     return true;
   } else if (request.action === 'retryFailedMessages') {
-    // New action to manually retry failed messages
     handleRetryFailedMessages().then(sendResponse);
     return true;
   } else if (request.action === 'clearFailedMessages') {
-    // New action to clear failed messages list
     handleClearFailedMessages().then(sendResponse);
     return true;
   }
@@ -873,9 +872,19 @@ async function handleUpdateNewsletterStatus(messageId, updates) {
 async function handleSaveScrollPosition(messageId, scrollPosition) {
   try {
     const { newsletters } = await chrome.storage.local.get('newsletters');
-    const updatedNewsletters = newsletters.map(nl => 
-      nl.id === messageId ? { ...nl, scrollPosition, incomplete: scrollPosition !== null } : nl
-    );
+    const updatedNewsletters = newsletters.map(nl => {
+      if (nl.id === messageId) {
+        return {
+          ...nl,
+          scrollPosition,
+          incomplete: scrollPosition !== null && scrollPosition > 0,
+          lastReadTime: Date.now(),
+          readProgress: scrollPosition ? calculateReadProgress(scrollPosition, nl) : 100
+        };
+      }
+      return nl;
+    });
+    
     await chrome.storage.local.set({ newsletters: updatedNewsletters });
     
     return { success: true };
@@ -883,6 +892,14 @@ async function handleSaveScrollPosition(messageId, scrollPosition) {
     console.error('Error saving scroll position:', error);
     return { success: false, error: error.message };
   }
+}
+
+
+function calculateReadProgress(scrollPosition, newsletter) {
+  // Estimate read progress based on scroll position
+  // This is a simple estimation - can be enhanced with reading time, etc.
+  const estimatedHeight = 5000; // Average newsletter height
+  return Math.min((scrollPosition / estimatedHeight) * 100, 100);
 }
 
 

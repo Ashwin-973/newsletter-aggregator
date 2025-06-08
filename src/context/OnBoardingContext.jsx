@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
-const OnboardingContext = createContext();
+const OnboardingContext = createContext();   /*CREATE CONTEXT */
 
 export const OnboardingProvider = ({ children }) => {
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
@@ -9,7 +9,7 @@ export const OnboardingProvider = ({ children }) => {
   const [blockedProviders, setBlockedProviders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load onboarding state from storage
+  // Info : Load onboarding state from storage
   useEffect(() => {
     const loadOnboardingState = async () => {
       try {
@@ -19,9 +19,7 @@ export const OnboardingProvider = ({ children }) => {
           'selectedProviders',
           'blockedProviders'
         ]);
-        console.log("Do I keep running?")
-
-        setOnboardingCompleted(result.onboardingCompleted || false); //creates new references everytime , might cause dependency alteration
+        setOnboardingCompleted(result.onboardingCompleted || false); //hunch : creates new object references everytime , might cause dependency alteration
         setAllProviders(result.allProviders || []);
         setSelectedProviders(result.selectedProviders || []);
         setBlockedProviders(result.blockedProviders || []);
@@ -35,7 +33,7 @@ export const OnboardingProvider = ({ children }) => {
     loadOnboardingState();
   }, []);
 
-  // Save to storage whenever state changes
+  // info : Save to storage whenever state changes
   const saveToStorage = async (updates) => {
     try {
       await chrome.storage.local.set(updates);
@@ -134,14 +132,14 @@ export const OnboardingProvider = ({ children }) => {
     updatePreferences,
     resetOnboarding
   };
-
+/*PROVIDE CONTEXT*/
   return (
     <OnboardingContext.Provider value={value}>
       {children}
     </OnboardingContext.Provider>
   );
 };
-
+/*CONSUME CONTEXT*/
 export const useOnboarding = () => {
   const context = useContext(OnboardingContext);
   if (!context) {

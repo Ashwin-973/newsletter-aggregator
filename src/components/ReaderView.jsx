@@ -18,15 +18,13 @@ export function ReaderView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [messageId, setMessageId] = useState(null);
-  // const [readingStartTime, setReadingStartTime] = useState(null);
-  // const [isBookmarked, setIsBookmarked] = useState(false);
-  // const [isSaved, setIsSaved] = useState(false);
   const [initialScrollPosition, setInitialScrollPosition] = useState(null); 
-  const scrollTimeoutRef = useRef(null); 
   const hasScrolledToPosition = useRef(false); 
   const [showIncompleteDialog, setShowIncompleteDialog] = useState(false); 
   const [pendingScrollPosition, setPendingScrollPosition] = useState(null);
-
+  const [scrollProgress, setScrollProgress] = useState(0);
+console.log("pending scroll : ",pendingScrollPosition)
+console.log("Should I show the incomplete dialog??",showIncompleteDialog)
   useEffect(() => {
     // Get messageId from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -46,30 +44,48 @@ export function ReaderView() {
       const scrollPercentage = (scrollPosition / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
       
       if (scrollPercentage < 80) {
-        // Store scroll position and show custom dialog
-        setPendingScrollPosition(scrollPosition);
-        setShowIncompleteDialog(true);
-        
-        // Set a return value to trigger browser's native dialog
-        e.preventDefault();
-        e.returnValue = ''; // This will show browser's generic "leave page?" dialog
-        return '';
+      // Save as incomplete immediately - no dialog due to browser restrictions
+      saveScrollPosition(messageId, scrollPosition);
+      setShowIncompleteDialog(true);
+      console.log("Saving scroll position , unload :",scrollPosition)
+      
+      // Set return value for browser's native dialog (fallback)
+      e.preventDefault();
+      e.returnValue = 'You haven\'t finished reading this newsletter. Your progress will be saved.';
+      return e.returnValue;
+    }
+    setPendingScrollPosition(scrollPosition);
 
-        
-      }
-    };
-    //handle page visibility channe when user swicthes/closes tabs
+  };
+    //handle page visibility change when user swicthes/closes tabs
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-        const scrollPercentage = (scrollPosition / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
-        
-        if (scrollPercentage < 80) {
-          // Auto-save as incomplete when user leaves without prompt
-          saveScrollPosition(id, scrollPosition);
-        }
+    if (document.visibilityState === 'hidden') {
+      const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollPercentage = (scrollPosition / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+      if (scrollPercentage < 80) {
+        saveScrollPosition(messageId, scrollPosition);
+        setShowIncompleteDialog(true);
+      } else {
+        // Mark as complete if read 80%+
+        saveScrollPosition(messageId, null);
       }
-    };
+      console.log("Saving scroll position , visibility:",scrollPosition)
+      setPendingScrollPosition(scrollPosition);
+
+    }
+  };
+  //back to inbox
+  const handleManualExit = () => {
+    const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollPercentage = (scrollPosition / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+    console.log("Saving scroll position , manual :",scrollPosition)
+    if (scrollPercentage < 80) {
+      setShowIncompleteDialog(true);
+      setPendingScrollPosition(scrollPosition);
+      return false; // Prevent immediate navigation
+    }
+    return true; // Allow navigation
+  };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -78,32 +94,49 @@ export function ReaderView() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [messageId]);
 
   // Scroll to saved position after content loads
   useEffect(() => {
     if (emailContent && initialScrollPosition && !hasScrolledToPosition.current) {
       setTimeout(() => {
+        console.log("Scrolling to : ",initialScrollPosition)
         window.scrollTo(0, initialScrollPosition);
         hasScrolledToPosition.current = true;
       }, 100);
     }
   }, [emailContent, initialScrollPosition]);
 
-  // handle  dialog actions
-  const handleSaveIncomplete = async () => {
-    if (pendingScrollPosition !== null) {
-      await saveScrollPosition(messageId, pendingScrollPosition);
-    }
-    setShowIncompleteDialog(false);
-    setPendingScrollPosition(null);
+//scroll progress indicator
+useEffect(() => {
+  const handleScroll = () => {
+    const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = (scrollPosition / scrollHeight) * 100;
+    setScrollProgress(Math.min(progress, 100));
   };
+  console.log("Scroll Progress : ",scrollProgress)
 
-  const handleDontSave = async () => {
-    await saveScrollPosition(messageId, null);
-    setShowIncompleteDialog(false);
-    setPendingScrollPosition(null);
-  };
+  window.addEventListener('scroll', handleScroll);
+  return () => window.removeEventListener('scroll', handleScroll);
+}, []);
+
+  // handle  dialog actions
+const handleSaveIncomplete = async () => {
+  if (pendingScrollPosition !== null) {
+    await saveScrollPosition(messageId, pendingScrollPosition);
+  }
+  setShowIncompleteDialog(false);
+  setPendingScrollPosition(null);
+  window.close();
+};
+
+const handleDontSave = async () => {
+  await saveScrollPosition(messageId, null);
+  setShowIncompleteDialog(false);
+  setPendingScrollPosition(null);
+  window.close();
+};
 
 const fetchEmailContent = async (id) => {
     try {
@@ -173,9 +206,23 @@ const fetchEmailContent = async (id) => {
     // Implementation would involve fetching attachment data from Gmail API
   };
 
-  const handleBackToInbox = () => {
+/*const handleBackToInbox = () => {
     window.close();
-  };
+  };*/
+
+const handleBackToInbox = () => {
+  const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+  const scrollPercentage = (scrollPosition / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+  
+  if (scrollPercentage < 80) {
+    setShowIncompleteDialog(true);
+    setPendingScrollPosition(scrollPosition);
+  } else {
+    // Mark as complete and close
+    saveScrollPosition(messageId, null);
+    window.close();
+  }
+};
 
   const markMessageAsRead = async (id) => {
     try {
@@ -192,6 +239,7 @@ const fetchEmailContent = async (id) => {
 
 const saveScrollPosition = async (id, position) => {
     try {
+      console.log("Saving scroll position locally for message id - scrollPosition : ",id,position)
       await new Promise((resolve) => {
         chrome.runtime.sendMessage(
           { action: 'saveScrollPosition', messageId: id, scrollPosition: position },
@@ -247,6 +295,18 @@ const saveScrollPosition = async (id, position) => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600">Reading Progress</span>
+          <span className="text-gray-800 font-medium">{Math.round(scrollProgress)}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+        <div 
+            className={`h-2 rounded-full transition-all duration-300 ${
+              scrollProgress >= 80 ? 'bg-green-500' : 'bg-blue-500'
+            }`}
+            style={{ width: `${scrollProgress}%` }}
+            />
+        </div>
         <div className="flex items-center justify-between">
           <Button 
             onClick={handleBackToInbox} 
