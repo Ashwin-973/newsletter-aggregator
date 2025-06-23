@@ -83,7 +83,7 @@ function getLabelFromValue(value, options) {
       </div>
 
       {isOpen && (
-        <div className="text-sm absolute z-10 w-full mt-2 rounded-lg shadow-xl border border-gray-100 py-1 backdrop-blur-xl bg-white/90">
+        <div className="text-sm absolute z-2 w-full mt-2 rounded-lg shadow-xl border border-gray-100 py-1 backdrop-blur-xl bg-white/90">
           <ul
             className="max-h-60 overflow-auto"
             role="listbox"

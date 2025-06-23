@@ -54,7 +54,7 @@ export function ContextMenu({
   return (
     <div
       ref={menuRef}
-      className="!absolute bg-white border border-gray-200 rounded-md shadow-lg py-1 !z-9999 min-w-[160px]"
+      className="!absolute bg-white border border-gray-200 rounded-md shadow-lg py-1 z-1 min-w-[160px]"
       style={{
         left: `${position.x}px`, //what does this actually do? , maybe it aligns it's position wrt click-coordinates
         top: `${position.y}px`,

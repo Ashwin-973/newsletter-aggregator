@@ -89,8 +89,8 @@ const handleClose = () => {
 };
 
   return (
-     <div className={`min-w-[732px] z-50 ${isSettingsMode?`fixed inset-0 w-[700px] bg-black/80 z-1000`:``} p-4  max-w[780px] max-height-[600px]`}> {/*evaluates values inside curly braces as js expression , as template strings is a js exp */}
-      <div className="bg-white p-6 rounded-lg shadow-lg max-h-full max-w-full relative flex flex-col">
+     <div className={` ${isSettingsMode?`p-3 min-w-0 max-w-full max-h-full`:`p-4 max-w-[780px] min-w-[732px] max-h-[600px]`}  ${isSettingsMode?`fixed inset-0 flex justify-center items-center  bg-black z-4`:``}   `}> {/*evaluates values inside curly braces as js expression , as template strings is a js exp */}
+      <div className="bg-white p-6 rounded-lg shadow-lg h-full max-w-full relative flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div>

@@ -587,7 +587,6 @@ const renderNewsletterItem = (newsletter) => {
   );
 };
 
-
 return (
     <div id="popup" className="relative p-4 w-[780px] h-[600px] max-w-[780px] max-h-[600px]">
       {!isAuthenticated ? (

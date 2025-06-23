@@ -305,8 +305,8 @@ export const SettingsPanel = () => {
       </Button>
 
       {isOpen && (
-        <div className="fixed inset-0 p-4 w-[780px] max-w[780px] max-height-[600px]  bg-black/80 flex justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg max-h-full max-w-full flex flex-col">
+        <div className="fixed inset-0 p-3 flex justify-center items-center max-w[750px] max-h-full  bg-black/90 z-3"> {/*don't use margins with modal ,a s it reveals background-content which makes awkward */}
+          <div className="bg-white rounded-lg shadow-lg h-full max-w-full flex flex-col"> {/*height must be 100% of it's parent to avoid shortening  */}
             {/* Header */}
             <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold">Settings</h2>
@@ -320,7 +320,7 @@ export const SettingsPanel = () => {
 
             <div className="flex flex-1 min-h-0">
               {/* Sidebar */}
-              <div className="w-64 border-r bg-gray-50 p-4">
+              <div className="w-64 border-r bg-gray-50 p-4"> {/* flex : 0 1 auto */}
                 <nav className="space-y-2">
                   {tabs.map(tab => {
                     const Icon = tab.icon;
