@@ -142,9 +142,21 @@ const newsletters = [
   { id: 6, subject: "Personal Email", from: "john.doe@personal.com" }
 ];
 
-const res=newsletters.filter(nl=>!(new Set(blockedProviders
-        .map(blocked=>blocked.value)))
-        .has((extractProviderInfo(nl.from)).value))
 
 
-console.log(res)
+options = [{
+    value:"1",label:"Newest"
+  },{
+    value:"2",label:"Today"
+  },{
+    value:"3",label:"Last 7 Days"
+  },{
+    value:"4",label:"Custom..."
+  }]
+
+function getLabelFromValue(value, options) {
+  const foundOption = options.find(option => option.value === value);
+  return foundOption ? foundOption.label : "Newest";
+}
+
+console.log(getLabelFromValue("1"))

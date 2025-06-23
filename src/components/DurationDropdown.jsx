@@ -1,34 +1,52 @@
 import { useId } from "react"
 import {Modal} from "./Modal"
 import { useModal } from "@/hooks/useModal"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { useState, useRef, useEffect } from 'react';
+import { ChevronDown } from 'lucide-react';
 
-export function DurationDropdown({onChange,value}) {
-  // const [durationFilter,setDurationFilter]=useState("")
+export const DurationDropdown = ({ 
+  options = [{
+    value:"1",label:"Newest"
+  },{
+    value:"2",label:"Today"
+  },{
+    value:"3",label:"Last 7 Days"
+  },{
+    value:"4",label:"Custom..."
+  }], 
+  placeholder = "Select a duration",
+  value="1",
+  onChange
+}) => {
   const id = useId()
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedOption, setSelectedOption] = useState(value || "1");
+  const selectRef = useRef(null);
   const {open,openModal,closeModal}=useModal()
-//value won't change when clicking Custom... twice
 
-const handleValueChange = (value) => {
-  if (value === "4"){
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (selectRef.current && !selectRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+const handleSelect = (value) => {
+    setSelectedOption(value);
+    console.log("selected : ",value)
+    if (value === "4"){
     openModal()
-  }
-  else{
-    // setDurationFilter(value)
-    onChange(value)
+    }
+    else{
+      onChange?.(value);
+    }
+    setIsOpen(false);
+  };
 
-  }
-}
 const handleCustomDuration = (e) => {
    e.preventDefault()
     const date = e.target.date.value
@@ -38,25 +56,56 @@ const handleCustomDuration = (e) => {
     // setDurationFilter([date,time])   //why don't it accept objects?
     onChange([date,time])
     closeModal()
-    onChange("1")
   }
+function getLabelFromValue(value, options) {
+  const foundOption = options.find(option => option.value === value);
+  return foundOption ? foundOption.label : "Newest";
+}
+
   return (
-    <div className="*:not-first:mt-2 min-w-[154px] relative !overflow-visible">
-      {/* <Label htmlFor={id}>filter by duration</Label> */}
-      <Select defaultValue="1" value={value}   onValueChange={handleValueChange} onOpenChange={(open)=>console.log('select opened : ',open)}>
-        <SelectTrigger id={id}>
-          <SelectValue placeholder="By Duration" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Quick Actions</SelectLabel>
-            <SelectItem value="1">Newest</SelectItem>
-            <SelectItem value="2">Today</SelectItem>
-            <SelectItem value="3">Last 7 days</SelectItem>
-            <SelectItem value="4">Custom...</SelectItem>   {/*selection happens via the value attribute... that's where the tick goes */}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+    <div className="relative w-full max-w-[180px]" ref={selectRef}>
+      <div className="relative group">
+        <div className="absolute inset-0 rounded-lg blur-xl transition-all duration-500 group-hover:blur-2xl group-hover:opacity-75" />
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          type="button"
+          className="text-sm relative w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 bg-white/70 backdrop-blur-xl shadow-lg transition-all duration-300 group-hover:border-gray-300 group-hover:bg-white/90"
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+        >
+          <span className={`block truncate ${selectedOption ? 'text-gray-800' : 'text-gray-500'}`}>
+            {getLabelFromValue(selectedOption,options) || placeholder}
+          </span>
+          <ChevronDown 
+            className={`w-5 h-5 text-gray-500 transition-transform duration-250 ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="text-sm absolute z-10 w-full mt-2 rounded-lg shadow-xl border border-gray-100 py-1 backdrop-blur-xl bg-white/90">
+          <ul
+            className="max-h-60 overflow-auto"
+            role="listbox"
+          >
+            {options.map((option) => (
+              <li
+                key={option.value}
+                onClick={() => handleSelect(option.value)}
+                className={`px-4 py-2 cursor-pointer transition-colors duration-150
+                  ${selectedOption === option.value 
+                    ? 'bg-slate-50 text-slate-700' 
+                    : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                role="option"
+                aria-selected={selectedOption === option.value}
+              >
+                {option.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <Modal isOpen={open} onClose={closeModal}>
         <form onSubmit={handleCustomDuration} className="space-y-4">
           <div className="flex flex-col gap-2">
@@ -98,5 +147,4 @@ const handleCustomDuration = (e) => {
       </Modal>
     </div>
   );
-}
-
+};
