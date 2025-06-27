@@ -70,7 +70,7 @@ export const SettingsPanel = () => {
       <div>
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-lg font-semibold">Provider Management</h3>
-          <Button onClick={openProviderModal} className="flex items-center gap-2">
+          <Button onClick={openProviderModal} className="bg-[var(--primary-500)] hover:bg-[var(--primary-600)] flex items-center gap-2">
             <Edit3 size={16} />
             Update Preferences
           </Button>
@@ -328,10 +328,10 @@ export const SettingsPanel = () => {
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
+                        className={`w-full font-medium text-sm flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
                           activeTab === tab.id
-                            ? 'bg-blue-100 text-blue-700 font-medium'
-                            : 'text-gray-600 hover:bg-gray-100'
+                            ? 'bg-[var(--primary-100)] text-[var(--primary-600)]'
+                            : 'text-[var(--secondary-700)] hover:bg-[var(--secondary-200)]'
                         }`}
                       >
                         <Icon size={18} />

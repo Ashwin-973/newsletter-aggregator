@@ -76,7 +76,7 @@ export const SegmentedControl = ({
               focus:outline-none
               ${selectedValue === option
                 ? 'text-gray-900 dark:text-white'
-                : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                : 'text-[var(--secondary-500)] hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
               }
             `}
             onClick={() => handleSegmentClick(option)}

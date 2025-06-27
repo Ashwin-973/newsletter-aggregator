@@ -483,7 +483,7 @@ const SyncStatusBar = () => {
   const lastSyncTime = syncStatus.lastDeltaSyncTime || syncStatus.lastFullSyncTime;
   
   return (
-    <div className="mb-3 p-2 bg-muted rounded-lg">
+    <div className="mb-3 p-2 bg-white rounded-lg border shadow-sm">
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
           {isSyncing ? (
@@ -494,14 +494,14 @@ const SyncStatusBar = () => {
             <CheckCircle className="h-4 w-4 text-green-500" />
           )}
           
-          <span>
+          <span className="text-sm">
             {isSyncing ? 'Syncing...' : 
              hasErrors ? 'Sync completed with errors' : 
              'Sync up to date'}
           </span>
           
           {syncStatus.totalNewslettersProcessed > 0 && (
-            <Badge variant="secondary">
+            <Badge variant="secondary" className="text-[13px]">
               {syncStatus.totalNewslettersProcessed} newsletters
             </Badge>
           )}
@@ -509,7 +509,7 @@ const SyncStatusBar = () => {
         
         <div className="flex items-center gap-2">
           {lastSyncTime && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {new Date(lastSyncTime).toLocaleTimeString()}
             </span>
@@ -549,7 +549,7 @@ const renderNewsletterItem = (newsletter) => {
   return (
     <li 
       key={newsletter?.id} 
-      className="p-2 border rounded hover:bg-muted cursor-pointer transition-colors relative"
+      className="p-2 border rounded hover:bg-[var(--primary-50)] cursor-pointer transition-colors relative"
       onClick={() => handleNewsletterClick(newsletter)}
       onContextMenu={(e) => handleContextMenu(e, newsletter)}
       role="button"
@@ -560,14 +560,14 @@ const renderNewsletterItem = (newsletter) => {
           <div className="font-semibold text-sm truncate flex items-center gap-2" title={subject}>
             {subject}
             <div className="flex gap-1">
-              {newsletter.bookmark && <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">📖</span>}
-              {newsletter.readLater && <span className="text-xs bg-yellow-100 text-yellow-800 px-1 rounded">🕒</span>}
-              {newsletter.incomplete && <span className="text-xs bg-orange-100 text-orange-800 px-1 rounded">📄</span>}
-              {!newsletter.read && <span className="text-xs bg-green-100 text-green-800 px-1 rounded">●</span>}
+              {newsletter.bookmark && <span className="text-xs bg-[var(--info-200)] text-blue-800 px-1 rounded">📖</span>}
+              {newsletter.readLater && <span className="text-xs bg-[var(--warning-200)] text-yellow-800 px-1 rounded">🕒</span>}
+              {newsletter.incomplete && <span className="text-xs bg-[var(--error-200)] text-orange-800 px-1 rounded">📄</span>}
+              {!newsletter.read && <span className="text-xs bg-[var(--success-200)] text-green-800 px-1 rounded">●</span>}
             </div>
           </div>
-          <div className="text-xs text-muted-foreground truncate" title={from}>{from}</div>
-          {date && <div className="text-xs text-muted-foreground">{new Date(date).toLocaleDateString()}</div>}
+          <div className="text-xs text-muted-foreground font-semibold truncate" title={from}>{from}</div>
+          {date && <div className="font-medium leading-[1.6]  text-[11px] text-muted-foreground">{new Date(date).toLocaleDateString()}</div>}
           {newsletter.incomplete && (
             <div className="mt-1">
               <div className="w-full bg-gray-200 rounded-full h-1">
@@ -581,14 +581,14 @@ const renderNewsletterItem = (newsletter) => {
         </div>
       </div>
       <div className="mt-1">
-        <span className="text-xs text-blue-600 hover:text-blue-800"> {newsletter.incomplete ? `Continue reading (${Math.round(readProgress)}%) →` : 'Click to read →'}</span>
+        <span className=" text-[var(--primary-600)] hover:text-[var(--primary-700)]"> {newsletter.incomplete ? `Continue reading (${Math.round(readProgress)}%) →` : 'Click to read →'}</span>
       </div>
     </li>
   );
 };
 
 return (
-    <div id="popup" className="relative p-4 w-[780px] h-[600px] max-w-[780px] max-h-[600px]">
+    <div id="popup" className="bg-[var(--primary-50)] relative p-4 w-[780px] h-[600px] max-w-[780px] max-h-[600px]">
       {!isAuthenticated ? (
         <SignIn isLoading={isLoading} handleAuthClick={handleAuthClick} />
       ) : ( 

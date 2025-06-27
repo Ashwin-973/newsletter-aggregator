@@ -97,7 +97,7 @@ const handleClose = () => {
             <h2 className="text-xl font-bold">
               {isSettingsMode ? 'Update Newsletter Preferences' : 'Choose Your Newsletter Providers'}
             </h2>
-            <p className="text-gray-600 text-sm mt-1">
+            <p className="text-gray-600 font-semibold text-sm mt-1">
               {isSettingsMode 
                 ? 'Modify which newsletter providers you want to receive emails from'
                 : 'Select the newsletter providers you want to receive emails from. You can change this later in settings.'
@@ -134,13 +134,13 @@ const handleClose = () => {
             <div className="space-x-2">
               <button
                 onClick={handleSelectAll}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800 font-medium"
               >
                 Select All
               </button>
               <button
                 onClick={handleDeselectAll}
-                className="text-red-600 hover:text-red-800"
+                className="text-red-600 hover:text-red-800 font-medium"
               >
                 Deselect All
               </button>
@@ -237,7 +237,7 @@ const handleClose = () => {
             <Button 
               onClick={handleSave}
               disabled={allProviders.length === 0}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-[var(--primary-500)] hover:bg-[var(--primary-600)]"
             >
               {isSettingsMode ? 'Update Preferences' : 'Complete Setup'}
             </Button>

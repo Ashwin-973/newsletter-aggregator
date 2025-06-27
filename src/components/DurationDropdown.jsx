@@ -69,11 +69,11 @@ function getLabelFromValue(value, options) {
         <button
           onClick={() => setIsOpen(!isOpen)}
           type="button"
-          className="text-sm relative w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 bg-white/70 backdrop-blur-xl shadow-lg transition-all duration-300 group-hover:border-gray-300 group-hover:bg-white/90"
+          className="font-medium text-sm focus-within:border-ring focus-within:ring-ring/50 relative w-full flex items-center justify-between px-4 py-2.25 rounded-lg border border-gray-200 bg-white/70 backdrop-blur-xl shadow-lg transition-all duration-300 group-hover:border-gray-300 group-hover:bg-white/90"
           aria-haspopup="listbox"
           aria-expanded={isOpen}
         >
-          <span className={`block truncate ${selectedOption ? 'text-gray-800' : 'text-gray-500'}`}>
+          <span className={`block truncate ${selectedOption ? 'text-black' : 'text-[var(--secondary-500)]'}`}>
             {getLabelFromValue(selectedOption,options) || placeholder}
           </span>
           <ChevronDown 
@@ -83,7 +83,7 @@ function getLabelFromValue(value, options) {
       </div>
 
       {isOpen && (
-        <div className="text-sm absolute z-2 w-full mt-2 rounded-lg shadow-xl border border-gray-100 py-1 backdrop-blur-xl bg-white/90">
+        <div className="font-medium text-sm absolute z-2 w-full mt-2 rounded-lg shadow-xl border border-gray-100 py-1 backdrop-blur-xl bg-white/90">
           <ul
             className="max-h-60 overflow-auto"
             role="listbox"
@@ -94,8 +94,8 @@ function getLabelFromValue(value, options) {
                 onClick={() => handleSelect(option.value)}
                 className={`px-4 py-2 cursor-pointer transition-colors duration-150
                   ${selectedOption === option.value 
-                    ? 'bg-slate-50 text-slate-700' 
-                    : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-[var(--primary-100)] text-[var(--secondary-900)]' 
+                    : 'text-[var(--secondary-500)] hover:bg-[var(--primary-50)]'
                   }`}
                 role="option"
                 aria-selected={selectedOption === option.value}

@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
-
+/*!why is text-[var(--text-base-size)] confused with text-color by the browser?? */
 function Card({
   className,
   ...props
@@ -39,7 +39,7 @@ function CardTitle({
   return (
     <div
       data-slot="card-title"
-      className={cn("leading-none font-semibold", className)}
+      className={cn("leading-none text-[var(--text-base-size)] text-sm font-bold textfont-semibold", className)}
       {...props} />
   );
 }
@@ -51,7 +51,7 @@ function CardDescription({
   return (
     <div
       data-slot="card-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground  text-xs font-semibold", className)}
       {...props} />
   );
 }

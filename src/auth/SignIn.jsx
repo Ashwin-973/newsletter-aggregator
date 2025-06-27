@@ -8,7 +8,7 @@ export const SignIn=({handleAuthClick,isLoading})=>
 {
     return (
         <div className="p-10 min-h-screen flex justify-center items-center">
-            <Button onClick={handleAuthClick}  className="bg-neutral-800 hover:bg-neutral-500">
+            <Button onClick={handleAuthClick}  className="bg-[var(--primary-500)] hover:bg-[var(--primary-600)]">
                 {isLoading?<Loader2 className="animate-spin"/>:'Sign In with Google'}
             </Button>
         </div>
